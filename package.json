@@ -1,0 +1,14 @@
+{
+  "name": "to-do-app",
+  "version": "1.0.0",
+  "description": "Full-stack task manager with Pomodoro timer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "sql.js": "^1.14.1"
+  }
+}

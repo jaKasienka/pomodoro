@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Manager</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1 class="header__title">Task Manager</h1>
+      <p class="header__subtitle">Focus with Pomodoro, collect your tasks</p>
+    </header>
+
+    <main class="main">
+      <section class="panel pomodoro" aria-label="Pomodoro timer">
+        <h2 class="panel__title">Pomodoro</h2>
+        <div class="pomodoro__display" id="timer-display" aria-live="polite">25:00</div>
+        <div class="pomodoro__controls">
+          <button class="btn btn--primary" id="timer-start" type="button">Start</button>
+          <button class="btn btn--secondary" id="timer-pause" type="button" disabled>Pause</button>
+          <button class="btn btn--ghost" id="timer-reset" type="button">Reset</button>
+        </div>
+        <p class="pomodoro__status" id="timer-status">Ready to focus</p>
+      </section>
+
+      <section class="panel tasks" aria-label="Task list">
+        <h2 class="panel__title">Tasks</h2>
+
+        <form class="task-form" id="task-form">
+          <input
+            class="task-form__input"
+            id="task-input"
+            type="text"
+            placeholder="Add a new task..."
+            autocomplete="off"
+            maxlength="500"
+            required
+          >
+          <button class="btn btn--primary" type="submit">Add</button>
+        </form>
+
+        <ul class="task-list" id="task-list" aria-live="polite"></ul>
+
+        <p class="tasks__empty" id="empty-state">No tasks yet. Add one to get started.</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

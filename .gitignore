@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Local SQLite Database & temp files
+tasks.db
+tasks.db-wal
+tasks.db-shm
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment / Secret variables
+.env
+.env.local
+
+# Operating System junk files
+.DS_Store
+Thumbs.db
