@@ -1,14 +1,19 @@
 :root {
   /* Core Colors */
-  --color-gradient-purple: rgba(111, 76, 255, 0.35);
+  --color-gradient-purple: rgba(168, 85, 247, 0.4);
+  --color-gradient-purple-strong: rgba(124, 58, 237, 0.35);
+  --color-gradient-lilac: rgba(192, 132, 252, 0.2);
   --color-gradient-blue: rgba(58, 130, 246, 0.2);
-  --color-gradient-dark-1: #090514;
-  --color-gradient-dark-2: #140b2d;
-  --color-gradient-dark-3: #0d1635;
-  --color-bg-gradient: radial-gradient(circle at top left, var(--color-gradient-purple), transparent 30%), radial-gradient(circle at bottom right, var(--color-gradient-blue), transparent 32%), linear-gradient(135deg, var(--color-gradient-dark-1) 0%, var(--color-gradient-dark-2) 42%, var(--color-gradient-dark-3) 100%);
-  --color-glass-bg: rgba(255, 255, 255, 0.08);
+  --color-gradient-dark-1: #0f071a;
+  --color-gradient-dark-2: #05020a;
+  --color-gradient-dark-3: #140b2d;
+  --color-bg-gradient: radial-gradient(circle at 25% 25%, var(--color-gradient-purple) 0%, transparent 45%), radial-gradient(circle at 75% 75%, var(--color-gradient-purple-strong) 0%, transparent 45%), radial-gradient(circle at 50% 10%, var(--color-gradient-lilac) 0%, transparent 35%);
+  --color-glass-bg: rgba(255, 255, 255, 0.03);
   --color-glass-bg-fallback: rgba(15, 17, 23, 0.85);
-  --color-glass-border: rgba(255, 255, 255, 0.16);
+  --color-glass-border: rgba(255, 255, 255, 0.12);
+  --color-glass-highlight: rgba(255, 255, 255, 0.15);
+  --color-glass-shadow-ambient: rgba(168, 85, 247, 0.1);
+  --color-glass-shadow-deep: rgba(0, 0, 0, 0.5);
   --color-divider-gradient: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.75), transparent);
   --color-heading-primary: #d3b8ff;
   --color-heading-muted: #b0b3c5;
@@ -27,6 +32,17 @@
   --color-button-border-strong: rgba(168, 85, 247, 0.9);
   --color-button-hover: rgba(255, 255, 255, 0.14);
   --color-button-shadow: rgba(168, 85, 247, 0.12);
+  --color-divider-glow: rgba(168, 85, 247, 0.5);
+  --color-divider-strong: rgba(168, 85, 247, 0.8);
+  --color-timer-glow: rgba(168, 85, 247, 0.3);
+  --color-timer-text: #ffffff;
+  --color-timer-hover-text: #f3e8ff;
+  --color-timer-hover-bg: rgba(168, 85, 247, 0.08);
+  --color-timer-hover-shadow: rgba(168, 85, 247, 0.3);
+  --color-body-background: #06020e;
+  --color-panel-bg: rgba(255, 255, 255, 0.03);
+  --color-panel-border: rgba(255, 255, 255, 0.1);
+  --color-panel-hover-glow: rgba(168, 85, 247, 0.8);
 
   /* Modern Typography */
   --font-family-main: 'Inter', system-ui, -apple-system, sans-serif;
@@ -82,13 +98,18 @@
 
   /* Glassmorphism Base & Dark Purple-Blue Gradient */
 body {
-  background: var(--color-bg-gradient);
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-body-background);
+  background-image:
+    radial-gradient(circle at 25% 25%, var(--color-gradient-purple) 0%, transparent 45%),
+    radial-gradient(circle at 75% 75%, var(--color-gradient-purple-strong) 0%, transparent 45%),
+    radial-gradient(circle at 50% 10%, var(--color-gradient-lilac) 0%, transparent 35%);
   background-attachment: fixed;
   background-repeat: no-repeat;
   font-family: var(--font-family-main);
   font-weight: var(--font-weight-regular);
   color: var(--color-body-text);
-  min-height: 100vh;
 }
 
 .app {
@@ -129,14 +150,16 @@ body {
 }
 
 .panel {
-  background-color: var(--color-glass-bg-fallback);
-  background: var(--color-glass-bg);
-  border: 1px solid var(--color-glass-border);
-  border-radius: var(--radius-lg);
+  background: var(--color-panel-bg) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-panel-border) !important;
+  border-radius: 20px;
   padding: var(--spacing-xl);
-  box-shadow: var(--color-glass-shadow);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    0 20px 40px var(--color-glass-shadow-deep),
+    inset 0 1px 0 var(--color-glass-highlight),
+    0 0 40px var(--color-glass-shadow-ambient);
 }
 
 .panel__title {
@@ -159,6 +182,15 @@ body {
   opacity: 0.85;
 }
 
+.shining-line,
+hr {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--color-divider-strong) 50%, transparent 100%);
+  margin: 1.5rem 0;
+  box-shadow: 0 0 8px var(--color-divider-glow);
+}
+
 .pomodoro {
   display: flex;
   flex-direction: column;
@@ -167,19 +199,27 @@ body {
 }
 
 .pomodoro__display {
-  font-size: var(--font-size-display);
+  display: inline-block;
+  font-size: 4rem;
   font-weight: var(--font-weight-heavy);
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.05em;
-  color: var(--color-timer-ring);
+  letter-spacing: -1px;
+  color: var(--color-timer-text);
+  text-shadow: 0 0 20px var(--color-timer-glow);
   margin: var(--spacing-lg) 0;
   line-height: 1;
-  transition: transform 200ms ease, box-shadow 200ms ease;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+  padding: 1rem 2rem;
+  border-radius: 16px;
 }
 
 .pomodoro__display:hover {
-  transform: translateY(-5px) scale(1.02);
-  box-shadow: 0 24px 60px var(--color-clock-shadow);
+  transform: translateY(-8px) scale(1.03);
+  color: var(--color-timer-hover-text);
+  text-shadow: 0 0 30px var(--color-panel-hover-glow);
+  background: var(--color-timer-hover-bg);
+  box-shadow: 0 10px 30px -5px var(--color-timer-hover-shadow);
 }
 
 .pomodoro__display--running {
