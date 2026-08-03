@@ -10,6 +10,33 @@
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
+  <canvas id="rainCanvas" class="rain-canvas" aria-hidden="true"></canvas>
+  <button id="moodBtn" class="mood-btn" type="button" aria-pressed="false">
+    <span class="btn-text">Let it rain</span>
+  </button>
+  <div id="rainVolumeControl" class="rain-volume-control" aria-label="Rain Volume">
+    <span class="volume-icon">🔊</span>
+    <input
+      type="range"
+      id="rainVolumeSlider"
+      class="volume-slider"
+      min="0"
+      max="1"
+      step="0.01"
+      value="0.35"
+      aria-label="Adjust rain volume"
+    />
+  </div>
+
+  <!-- Gentle Ambient Rain (Continuous Soft Loop) -->
+  <audio id="rainAudio" loop preload="auto">
+    <source src="https://assets.mixkit.co/active_storage/sfx/1250/1250-preview.mp3" type="audio/mpeg">
+  </audio>
+  <!-- other options for rain sounds:
+  [https://assets.mixkit.co/active_storage/sfx/1250/1250-preview.mp3]  medium rain
+  https://assets.mixkit.co/active_storage/sfx/2518/2518-preview.mp3  strong rain  
+  https://cdn.pixabay.com/download/audio/2022/05/16/audio_db6591201e.mp3?filename=rain-and-thunder-16705.mp3 rain with strings -->
+
   <div class="app">
     <header class="header">
       <h1 class="header__title">Task Manager</h1>
@@ -19,17 +46,62 @@
     <main class="main">
       <section class="panel pomodoro" aria-label="Pomodoro timer">
         <h2 class="panel__title">Pomodoro</h2>
-        <div class="pomodoro__display" id="timer-display" aria-live="polite">25:00</div>
+        <div class="timer-container">
+          <svg class="progress-ring" width="280" height="280">
+            <circle
+              class="progress-ring__track"
+              stroke="rgba(255, 255, 255, 0.1)"
+              stroke-width="8"
+              fill="transparent"
+              r="120"
+              cx="140"
+              cy="140"
+            />
+            <circle
+              id="progressCircle"
+              class="progress-ring__indicator"
+              stroke="var(--color-accent)"
+              stroke-width="8"
+              stroke-linecap="round"
+              fill="transparent"
+              r="120"
+              cx="140"
+              cy="140"
+            />
+          </svg>
+
+          <div class="pomodoro__display" id="timerDisplay" aria-live="polite">25:00</div>
+        </div>
+
         <div class="pomodoro__controls">
           <button class="btn btn--primary" id="timer-start" type="button">Start</button>
           <button class="btn btn--secondary" id="timer-pause" type="button" disabled>Pause</button>
           <button class="btn btn--ghost" id="timer-reset" type="button">Reset</button>
         </div>
         <p class="pomodoro__status" id="timer-status">Ready to focus</p>
+        <div id="completionBanner" class="completion-banner">
+          ✨ Session finished! Time for a well-deserved break.
+        </div>
       </section>
 
       <section class="panel tasks" aria-label="Task list">
         <h2 class="panel__title">Tasks</h2>
+
+        <div class="task-summary-card">
+          <div class="task-summary__info">
+            <span class="task-summary__title">Total Time Planned</span>
+            <span id="timeRemainingText" class="task-summary__time">0m planned (All clear! ☕)</span>
+          </div>
+
+          <p class="task-summary__note">
+            Includes 25m focus blocks + short 5m breaks (or 20m deep recovery break after 4 sets of 25m focus for example).
+            In other words, the total time you will spend on your tasks, including breaks.
+          </p>
+
+          <div class="progress-bar-track">
+            <div id="taskProgressBar" class="progress-bar-fill" style="width: 0%"></div>
+          </div>
+        </div>
 
         <form class="task-form" id="task-form">
           <input
@@ -43,6 +115,27 @@
           >
           <button class="btn btn--primary" type="submit">Add</button>
         </form>
+
+        <div class="task-presets">
+          <span class="task-presets__label">Quick add:</span>
+          <div class="task-presets__chips">
+            <!-- <button type="button" class="preset-chip" data-task="Outline presentation slides">
+              Prep Presentation
+            </button> -->
+            <button type="button" class="preset-chip" data-task="Practice speech techniques">
+              Practice Speech
+            </button>
+            <button type="button" class="preset-chip" data-task="Practice foreign language vocabulary">
+              Practice Languages
+            </button>
+            <!-- <button type="button" class="preset-chip" data-task="Drink water & posture check">
+              Posture & Water
+            </button> -->
+            <button type="button" class="preset-chip" data-task="Practice instrument scales">
+              Practice Scales
+            </button>
+          </div>
+        </div>
 
         <ul class="task-list" id="task-list" aria-live="polite"></ul>
 
