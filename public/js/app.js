@@ -450,10 +450,32 @@ timerReset.addEventListener('click', () => {
       const task = tasks.find(t => t.id === taskId);
       if (task) {
         task.plannedMinutes = newMinutes;
+        
+        // 1. Force the input box to instantly show the rounded value (e.g. 23 becomes 25)
+        inputEl.value = newMinutes; 
+
+        // 2. Find the exact list item (li) for this task row
+        const liEl = inputEl.closest('.task-item');
+        if (liEl) {
+          // 3. Toggle the standby styling class instantly if minutes hit 0
+          const isStandby = newMinutes === 0;
+          liEl.classList.toggle('task-item--standby', isStandby);
+
+          // 4. Update the visual text badge inside this row immediately
+          const timeTagEl = liEl.querySelector('.task-item__time-tag');
+          if (timeTagEl) {
+            // Replicate your renderTaskItem logic here
+            timeTagEl.className = `task-item__time-tag ${isStandby ? 'muted' : ''}`;
+            timeTagEl.innerHTML = `⏱️ ${getTaskDurationString(newMinutes)}${isStandby ? '' : ` (${newMinutes}m)`}`;
+          }
+        }
+
+        // 5. Save and update the totals
         localStorage.setItem('pomodoro_tasks', JSON.stringify(tasks));
         updateOverallScheduleSummary();
       }
     });
+
 
     let draggedItem = null;
 
