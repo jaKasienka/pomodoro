@@ -983,11 +983,11 @@ hr {
   top: 8px;
   right: 12px;
   font-size: 0.7rem;
-  color: #fbbf24;
-  background: rgba(0, 0, 0, 0.4);
+  color: var(--color-text-muted);
+  background: rgba(18, 10, 36, 0.98);
   padding: 2px 8px;
   border-radius: 12px;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .long-break-card.locked .lock-overlay {
@@ -999,7 +999,7 @@ hr {
 .long-break-card.unlocked {
   opacity: 1;
   filter: grayscale(0);
-  border-color: rgba(56, 189, 248, 0.4);
+  border-color: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
 }
 
@@ -1015,7 +1015,12 @@ hr {
   gap: 0.125rem;
   margin-bottom: 0.75rem;
 }
-.card-title { font-weight: 700; }
+.card-title { font-weight: 600; 
+  color: #94a3b8;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;}
 .card-subtitle { font-size: 0.8rem; color: var(--color-text-muted); }
 
 .dial-container { display: flex; justify-content: center; margin: 0.5rem 0 0.75rem 0; }

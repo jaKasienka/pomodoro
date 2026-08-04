@@ -28,6 +28,36 @@ function formatTime(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+// Updates just ONE task row and total schedule instantly
+function updateSingleTaskUI(task, taskItemElement) {
+  const mins = task.plannedMinutes ?? 25;
+  const isStandby = mins === 0;
+
+  // 1. Toggle Standby / Active classes instantly
+  taskItemElement.classList.toggle('task-item--standby', isStandby);
+
+  // 2. Update the time text under the task name immediately
+  const timeTag = taskItemElement.querySelector('.task-item__time-tag');
+  if (timeTag) {
+    if (isStandby) {
+      timeTag.textContent = '⏱️ Standby (0m)';
+      timeTag.classList.add('muted');
+    } else {
+      timeTag.textContent = `⏱️ ${mins}m focus block`;
+      timeTag.classList.remove('muted');
+    }
+  }
+
+  // 3. Save to localStorage immediately
+  localStorage.setItem('pomodoro_tasks', JSON.stringify(tasks));
+
+  // 4. Recalculate total schedule and check if Long Break unlocks
+  updateOverallScheduleSummary();
+  if (typeof checkLongBreakUnlockStatus === 'function') {
+    checkLongBreakUnlockStatus();
+  }
+}
+
 function updateDisplay(seconds) {
   timerDisplay.textContent = formatTime(seconds);
   setRingProgress(seconds, totalDuration);
@@ -313,7 +343,7 @@ timerReset.addEventListener('click', () => {
     taskListEl.innerHTML = '';
 
     tasks.forEach((task) => {
-      const rawMins = Number.isFinite(task.plannedMinutes) ? task.plannedMinutes : 30;
+      const rawMins = Number.isFinite(task.plannedMinutes) ? task.plannedMinutes : 25;
       const isStandby = rawMins === 0;
       const li = document.createElement('li');
       li.className = `task-item ${task.completed ? 'task-item--completed' : ''} ${isStandby ? 'task-item--standby' : ''}`;
@@ -339,7 +369,7 @@ timerReset.addEventListener('click', () => {
       const newTask = {
         id: Date.now().toString(),
         text,
-        plannedMinutes: 30,
+        plannedMinutes: 25,
         completedMinutes: 0,
         completed: false,
       };
@@ -364,7 +394,7 @@ timerReset.addEventListener('click', () => {
       const newTask = {
         id: Date.now().toString(),
         text: taskText,
-        plannedMinutes: 30,
+        plannedMinutes: 25,
         completedMinutes: 0,
         completed: false,
       };
