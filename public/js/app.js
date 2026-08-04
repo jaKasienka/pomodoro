@@ -505,19 +505,19 @@ timerReset.addEventListener('click', () => {
   updateOverallScheduleSummary();
 
   // Initialize long break UI and wire notch interactions
-  const savedLongBreak = Number(localStorage.getItem('longBreakMinutes')) || 20;
+  // const savedLongBreak = Number(localStorage.getItem('longBreakMinutes')) || 20;
   // safe-guard: define setLongBreakMinutes before call
-  try { setLongBreakMinutes(savedLongBreak); } catch (e) { /* ignore */ }
+  // try { setLongBreakMinutes(savedLongBreak); } catch (e) { /* ignore */ }
 
-  document.addEventListener('click', (e) => {
-    const notch = e.target.closest('.notch-label');
-    if (!notch) return;
-    const cardEl = document.getElementById('longBreakCard');
-    if (cardEl && cardEl.classList.contains('unlocked')) {
-      const v = Number(notch.dataset.value) || 20;
-      setLongBreakMinutes(v);
-    }
-  });
+  // document.addEventListener('click', (e) => {
+    // const notch = e.target.closest('.notch-label');
+    // if (!notch) return;
+    // const cardEl = document.getElementById('longBreakCard');
+    // if (cardEl && cardEl.classList.contains('unlocked')) {
+      // const v = Number(notch.dataset.value) || 20;
+      // setLongBreakMinutes(v);
+    // }
+  // });
 
 })();
 
