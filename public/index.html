@@ -87,6 +87,17 @@
       <section class="panel tasks" aria-label="Task list">
         <h2 class="panel__title">Tasks</h2>
 
+        <div class="tomato-vessel-container">
+          <div class="glass-tomato-vessel" id="mainTomatoVisual" title="Current Focus Session">
+            <div class="tomato-fill-fluid" id="tomatoFillLevel" style="height: 0%;"></div>
+            <div class="tomato-stem-vessel"></div>
+            <div class="tomato-leaf-vessel leaf-vessel-l"></div>
+            <div class="tomato-leaf-vessel leaf-vessel-c"></div>
+            <div class="tomato-leaf-vessel leaf-vessel-r"></div>
+            <div class="glass-reflection-vessel"></div>
+          </div>
+        </div>
+
         <div class="task-summary-card">
           <div class="task-summary__info">
             <span class="task-summary__title">Total Time Planned</span>
@@ -100,6 +111,38 @@
 
           <div class="progress-bar-track">
             <div id="taskProgressBar" class="progress-bar-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="long-break-card locked" id="longBreakCard">
+          <div class="lock-overlay" id="lockOverlay">
+            <span class="lock-icon">🔒</span>
+            <span class="lock-text">Unlocks when planned work > 100 min</span>
+          </div>
+
+          <div class="card-header">
+            <span class="card-title">☕ Long Break Duration</span>
+            <span class="card-subtitle">Set break time between 4-Pomodoro sets</span>
+          </div>
+
+          <div class="dial-container">
+            <div class="rotary-dial" id="breakDial">
+              <svg class="dial-svg" viewBox="0 0 120 120">
+                <circle class="dial-track" cx="60" cy="60" r="50" fill="none" stroke="rgba(255, 255, 255, 0.15)" stroke-width="8" stroke-linecap="round"></circle>
+                <circle id="dialProgress" class="dial-progress" cx="60" cy="60" r="50" fill="none" stroke="#38bdf8" stroke-width="8" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314"></circle>
+              </svg>
+              <div class="dial-center">
+                <span id="longBreakValue" class="dial-number">20</span>
+                <span class="dial-unit">min</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-notches">
+            <span class="notch-label" data-value="15">15m</span>
+            <span class="notch-label active" data-value="20">20m</span>
+            <span class="notch-label" data-value="25">25m</span>
+            <span class="notch-label" data-value="30">30m</span>
           </div>
         </div>
 

@@ -10,6 +10,9 @@ const timerReset = document.getElementById('timer-reset');
 const timerStatus = document.getElementById('timer-status');
 
 const taskForm = document.getElementById('task-form');
+const tomatoFillLevel = document.getElementById('tomatoFillLevel');
+
+const TOTAL_FOCUS_SECONDS = POMODORO_SECONDS;
 const taskInput = document.getElementById('task-input');
 const taskList = document.getElementById('task-list');
 const emptyState = document.getElementById('empty-state');
@@ -28,6 +31,14 @@ function formatTime(totalSeconds) {
 function updateDisplay(seconds) {
   timerDisplay.textContent = formatTime(seconds);
   setRingProgress(seconds, totalDuration);
+  updateTomatoVisualizer(seconds);
+}
+
+function updateTomatoVisualizer(secondsLeft) {
+  if (!tomatoFillLevel) return;
+  const fillRatio = 1 - (secondsLeft / TOTAL_FOCUS_SECONDS);
+  const heightPercent = Math.max(0, Math.min(100, fillRatio * 100));
+  tomatoFillLevel.style.height = `${heightPercent}%`;
 }
 
 function updateTimerUI() {
@@ -131,80 +142,147 @@ timerReset.addEventListener('click', () => {
 
   // Load tasks from localStorage or default to empty array and normalize fields
   let tasks = (JSON.parse(localStorage.getItem('pomodoro_tasks')) || []).map((task) => {
-    const estimatedPoms = task.estimatedPoms == null
-      ? 1
-      : Number.isInteger(task.estimatedPoms) && task.estimatedPoms >= 0
-        ? task.estimatedPoms
-        : 1;
+    const plannedMinutes = Number.isFinite(task.plannedMinutes) && task.plannedMinutes >= 0
+      ? task.plannedMinutes
+      : (Number.isFinite(task.estimatedPoms) && task.estimatedPoms >= 0 ? task.estimatedPoms * 25 : 30);
     const completed = Boolean(task.completed);
 
     return {
       ...task,
-      estimatedPoms,
+      plannedMinutes,
       completed,
-      completedPoms: completed ? (Number.isInteger(task.completedPoms) ? task.completedPoms : estimatedPoms) : 0,
+      completedMinutes: completed ? plannedMinutes : 0,
     };
   });
 
-  /**
-   * Calculates total schedule block time
-   * 1 Pomodoro = 30 min (25m work + 5m break)
-   */
-  function getTaskDurationString(poms) {
-    if (!poms || poms === 0) return 'Standby';
+  function getTaskDurationString(minutes) {
+    if (!minutes || minutes === 0) return 'Standby';
 
-    const totalMinutes = poms * 30;
-    const hours = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
-
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
     if (hours > 0) {
       return `${hours}h${mins > 0 ? ' ' + mins + 'm' : ''}`;
     }
     return `${mins}m`;
   }
 
+  function calculateDaySchedule(activeTasks, chosenLongBreakMins = 20) {
+    const totalRawWorkMins = activeTasks.reduce((sum, task) => sum + (task.plannedMinutes || 0), 0);
+
+    if (totalRawWorkMins === 0) {
+      return { totalPoms: 0, totalScheduleMins: 0, display: '0m (Standby)', rawWorkMins: 0 };
+    }
+
+    const totalPoms = Math.ceil(totalRawWorkMins / 25);
+    const fullSets = Math.floor(totalPoms / 4);
+    const remainingPomsInSet = totalPoms % 4;
+    const totalShortBreaks = totalPoms > 0 ? Math.max(0, (totalPoms - 1) - fullSets) : 0;
+    const totalLongBreaks = fullSets;
+    const focusTime = totalPoms * 25;
+    const breakTime = (totalShortBreaks * 5) + (totalLongBreaks * chosenLongBreakMins);
+    const totalScheduleMins = focusTime + breakTime;
+
+    const hrs = Math.floor(totalScheduleMins / 60);
+    const mins = totalScheduleMins % 60;
+    const formattedSchedule = hrs > 0 ? `${hrs}h ${mins > 0 ? mins + 'm' : ''}` : `${mins}m`;
+
+    return {
+      rawWorkMins: totalRawWorkMins,
+      totalPoms,
+      fullSets,
+      remainingPomsInSet,
+      totalScheduleMins,
+      formattedSchedule,
+      needsBreakChoice: fullSets > 0,
+    };
+  }
+
   function saveAndRender() {
     localStorage.setItem('pomodoro_tasks', JSON.stringify(tasks));
     renderTasks();
-    updateTaskSummary();
+    updateOverallScheduleSummary();
   }
 
-  function updateTaskSummary() {
+  function updateOverallScheduleSummary() {
     const activeTasks = tasks.filter(t => !t.completed);
-    const remainingPoms = activeTasks.reduce((sum, t) => sum + (t.estimatedPoms || 0), 0);
-    const totalRealMinutes = remainingPoms * 30;
-    const hours = Math.floor(totalRealMinutes / 60);
-    const mins = totalRealMinutes % 60;
-
-    let timeString = '';
-    if (hours > 0 && mins > 0) {
-      timeString = `${hours}h ${mins}m`;
-    } else if (hours > 0) {
-      timeString = `${hours}h`;
-    } else {
-      timeString = `${mins}m`;
-    }
-
+    const schedule = calculateDaySchedule(activeTasks);
     const summaryEl = document.getElementById('timeRemainingText');
+
     if (summaryEl) {
-      summaryEl.textContent = remainingPoms > 0
-        ? `${timeString} of your day`
+      summaryEl.textContent = schedule.rawWorkMins > 0
+        ? `${schedule.formattedSchedule} of your day`
         : '0m planned (All clear! ☕)';
     }
 
-    const totalCompletedPoms = tasks.reduce((sum, t) => sum + (t.completed ? (t.estimatedPoms || 0) : 0), 0);
-    const totalAllPoms = tasks.reduce((sum, t) => sum + (t.estimatedPoms || 0), 0);
+    const totalCompletedMinutes = tasks.reduce((sum, t) => sum + (t.completed ? (t.plannedMinutes || 0) : 0), 0);
+    const totalAllMinutes = tasks.reduce((sum, t) => sum + (t.plannedMinutes || 0), 0);
     const progressBar = document.getElementById('taskProgressBar');
     if (progressBar) {
-      const percentage = totalAllPoms > 0 ? (totalCompletedPoms / totalAllPoms) * 100 : 0;
+      const percentage = totalAllMinutes > 0 ? (totalCompletedMinutes / totalAllMinutes) * 100 : 0;
       progressBar.style.width = `${percentage}%`;
+    }
+    // Keep long-break card state in sync
+    try { checkLongBreakUnlockStatus(); } catch (e) { /* ignore if not ready */ }
+  }
+
+  function checkLongBreakUnlockStatus() {
+    const cardEl = document.getElementById('longBreakCard');
+    if (!cardEl) return;
+
+    const totalRawWorkMins = tasks
+      .filter(t => !t.completed && (t.plannedMinutes ?? 25) > 0)
+      .reduce((sum, t) => sum + (t.plannedMinutes ?? 25), 0);
+
+    const isEligibleForLongBreak = totalRawWorkMins > 100;
+
+    if (isEligibleForLongBreak) {
+      cardEl.classList.remove('locked');
+      cardEl.classList.add('unlocked');
+      // enable interactions
+      const notches = document.querySelectorAll('.notch-label');
+      notches.forEach(n => n.style.pointerEvents = 'auto');
+    } else {
+      cardEl.classList.add('locked');
+      cardEl.classList.remove('unlocked');
+      const notches = document.querySelectorAll('.notch-label');
+      notches.forEach(n => n.style.pointerEvents = 'none');
     }
   }
 
+  function setLongBreakMinutes(mins) {
+    const v = Number(mins) || 20;
+    localStorage.setItem('longBreakMinutes', String(v));
+    const valueEl = document.getElementById('longBreakValue');
+    if (valueEl) valueEl.textContent = String(v);
+    const dialProgress = document.getElementById('dialProgress');
+    if (dialProgress) {
+      const total = parseFloat(dialProgress.getAttribute('stroke-dasharray')) || 314;
+      let progressRatio = 1;
+
+      if (v === 15) {
+        progressRatio = 0.5;
+      } else if (v === 20) {
+        progressRatio = 0.5 + (1 / 3) * 0.5;
+      } else if (v === 25) {
+        progressRatio = 0.5 + (2 / 3) * 0.5;
+      } else if (v === 30) {
+        progressRatio = 1;
+      } else {
+        progressRatio = Math.max(0, Math.min(1, (v - 15) / 15));
+      }
+
+      const offset = total - (progressRatio * total);
+      dialProgress.style.strokeDashoffset = offset;
+    }
+    // mark active notch
+    document.querySelectorAll('.notch-label').forEach(n => {
+      n.classList.toggle('active', Number(n.dataset.value) === v);
+    });
+  }
+
   function renderTaskItem(task) {
-    // ⚡ Crucial Fix: '?? 1' keeps 0 as 0, but defaults missing values to 1
-    const poms = task.estimatedPoms ?? 1;
-    const isStandby = poms === 0;
+    const rawMins = Number.isFinite(task.plannedMinutes) ? task.plannedMinutes : 25;
+    const isStandby = rawMins === 0;
 
     return `
       <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
@@ -212,13 +290,20 @@ timerReset.addEventListener('click', () => {
       <div class="task-item__details">
         <span class="task-item__text">${escapeHTML(task.text)}</span>
         <span class="task-item__time-tag ${isStandby ? 'muted' : ''}">
-          ⏱️ ${getTaskDurationString(poms)} ${poms > 0 ? `(${poms} × 30m block)` : ''}
+          ⏱️ ${getTaskDurationString(rawMins)}${isStandby ? '' : ` (${rawMins}m)`}
         </span>
       </div>
-      <div class="task-item__pom-counter">
-        <button type="button" class="pom-btn pom-btn--minus" title="Decrease estimate" ${poms === 0 ? 'disabled' : ''}>-</button>
-        <span class="pom-count ${isStandby ? 'zero' : ''}">${poms} 🍅</span>
-        <button type="button" class="pom-btn pom-btn--plus" title="Increase estimate">+</button>
+      <div class="compact-time-pill">
+        <input
+          type="number"
+          class="task-time-field"
+          value="${rawMins}"
+          min="0"
+          max="480"
+          step="5"
+          data-id="${task.id}"
+        />
+        <span class="time-unit-label">m</span>
       </div>
       <button class="btn btn--danger task-item__delete-btn">🗑️</button>
     `;
@@ -228,8 +313,8 @@ timerReset.addEventListener('click', () => {
     taskListEl.innerHTML = '';
 
     tasks.forEach((task) => {
-      const poms = task.estimatedPoms ?? 1;
-      const isStandby = poms === 0;
+      const rawMins = Number.isFinite(task.plannedMinutes) ? task.plannedMinutes : 30;
+      const isStandby = rawMins === 0;
       const li = document.createElement('li');
       li.className = `task-item ${task.completed ? 'task-item--completed' : ''} ${isStandby ? 'task-item--standby' : ''}`;
       li.dataset.id = task.id;
@@ -254,8 +339,8 @@ timerReset.addEventListener('click', () => {
       const newTask = {
         id: Date.now().toString(),
         text,
-        estimatedPoms: 1,
-        completedPoms: 0,
+        plannedMinutes: 30,
+        completedMinutes: 0,
         completed: false,
       };
       tasks.push(newTask);
@@ -279,8 +364,8 @@ timerReset.addEventListener('click', () => {
       const newTask = {
         id: Date.now().toString(),
         text: taskText,
-        estimatedPoms: 1,
-        completedPoms: 0,
+        plannedMinutes: 30,
+        completedMinutes: 0,
         completed: false,
       };
 
@@ -311,33 +396,32 @@ timerReset.addEventListener('click', () => {
         return;
       }
 
-      if (e.target.classList.contains('pom-btn--plus')) {
-        e.stopPropagation();
-        const task = tasks.find(t => t.id === taskId);
-        if (task) {
-          task.estimatedPoms = (task.estimatedPoms || 0) + 1;
-          saveAndRender();
-        }
-        return;
-      }
-
-      if (e.target.classList.contains('pom-btn--minus')) {
-        e.stopPropagation();
-        const task = tasks.find(t => t.id === taskId);
-        if (task && (task.estimatedPoms || 0) > 0) {
-          task.estimatedPoms -= 1;
-          saveAndRender();
-        }
-        return;
-      }
-
       if (e.target.classList.contains('task-item__checkbox')) {
         const task = tasks.find(t => t.id === taskId);
         if (task) {
           task.completed = e.target.checked;
-          task.completedPoms = task.completed ? task.estimatedPoms : 0;
+          task.completedMinutes = task.completed ? task.plannedMinutes : 0;
           saveAndRender();
         }
+      }
+    });
+
+    taskListEl.addEventListener('change', (e) => {
+      if (!e.target.classList.contains('task-time-field')) return;
+
+      const inputEl = e.target;
+      const taskId = inputEl.dataset.id;
+      let newMinutes = parseInt(inputEl.value, 10);
+
+      if (isNaN(newMinutes) || newMinutes < 0) newMinutes = 0;
+      if (newMinutes > 480) newMinutes = 480;
+      newMinutes = Math.round(newMinutes / 5) * 5;
+
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        task.plannedMinutes = newMinutes;
+        localStorage.setItem('pomodoro_tasks', JSON.stringify(tasks));
+        updateOverallScheduleSummary();
       }
     });
 
@@ -388,7 +472,23 @@ timerReset.addEventListener('click', () => {
 
   // Initial render
   renderTasks();
-  updateTaskSummary();
+  updateOverallScheduleSummary();
+
+  // Initialize long break UI and wire notch interactions
+  const savedLongBreak = Number(localStorage.getItem('longBreakMinutes')) || 20;
+  // safe-guard: define setLongBreakMinutes before call
+  try { setLongBreakMinutes(savedLongBreak); } catch (e) { /* ignore */ }
+
+  document.addEventListener('click', (e) => {
+    const notch = e.target.closest('.notch-label');
+    if (!notch) return;
+    const cardEl = document.getElementById('longBreakCard');
+    if (cardEl && cardEl.classList.contains('unlocked')) {
+      const v = Number(notch.dataset.value) || 20;
+      setLongBreakMinutes(v);
+    }
+  });
+
 })();
 
 const radius = progressCircle ? progressCircle.r.baseVal.value : 120;
