@@ -164,6 +164,24 @@ timerReset.addEventListener('click', () => {
   resetTimer();
 });
 
+timerDisplay.addEventListener('click', () => {
+  if (isRunning) {
+    isRunning = false;
+    clearInterval(timerInterval);
+    timerInterval = null;
+    setTimerControls();
+    timerDisplay.classList.remove('pomodoro__display--running');
+    timerStatus.textContent = 'Paused';
+  } 
+  else if (!isRunning && timeRemaining > 0) {
+    isRunning = true;
+    setTimerControls();
+    timerDisplay.classList.add('pomodoro__display--running');
+    timerStatus.textContent = 'Focus session in progress...';
+    timerInterval = setInterval(tick, 1000);
+  }
+});
+
 // Task State Management with LocalStorage
 (function initTaskManager() {
   const taskFormEl = document.querySelector('.task-form');
