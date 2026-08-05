@@ -314,29 +314,31 @@ timerReset.addEventListener('click', () => {
     const rawMins = Number.isFinite(task.plannedMinutes) ? task.plannedMinutes : 25;
     const isStandby = rawMins === 0;
 
-    return `
-      <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
-      <input type="checkbox" class="task-item__checkbox" ${task.completed ? 'checked' : ''} />
-      <div class="task-item__details">
-        <span class="task-item__text">${escapeHTML(task.text)}</span>
-        <span class="task-item__time-tag ${isStandby ? 'muted' : ''}">
-          ⏱️ ${getTaskDurationString(rawMins)}${isStandby ? '' : ` (${rawMins}m)`}
-        </span>
-      </div>
-      <div class="compact-time-pill">
-        <input
-          type="number"
-          class="task-time-field"
-          value="${rawMins}"
-          min="0"
-          max="480"
-          step="5"
-          data-id="${task.id}"
-        />
-        <span class="time-unit-label">m</span>
-      </div>
-      <button class="btn btn--danger task-item__delete-btn">🗑️</button>
-    `;
+      // Inside function renderTaskItem(task) ...
+  return `
+    <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+    <input type="checkbox" class="task-item__checkbox" ${task.completed ? 'checked' : ''} />
+    <div class="task-item__details">
+      <span class="task-item__text">${escapeHTML(task.text)}</span>
+      <span class="task-item__time-tag ${isStandby ? 'muted' : ''}">
+        ⏱️ ${getTaskDurationString(rawMins)}${isStandby ? '' : ` (${rawMins}m)`}
+      </span>
+    </div>
+    <div class="compact-time-pill">
+      <input
+        type="number"
+        class="task-time-field"
+        value="${rawMins}"
+        min="0"
+        max="480"
+        step="5"
+        data-id="${task.id}"
+      />
+      <span class="time-unit-label">m</span>
+    </div>
+    <button class="btn btn--save task-time-save-btn" title="Save time" data-id="${task.id}">✓</button>
+    <button class="btn btn--danger task-item__delete-btn">🗑️</button>
+  `;
   }
 
   function renderTasks() {
@@ -408,6 +410,13 @@ timerReset.addEventListener('click', () => {
     taskListEl.addEventListener('click', (e) => {
       const taskItem = e.target.closest('.task-item');
       if (!taskItem) return;
+
+    // A. Auto-select text immediately on click or focus
+    taskListEl.addEventListener('focusin', (e) => {
+      if (e.target.classList.contains('task-time-field')) {
+        e.target.select(); 
+      }
+    });  
 
       const taskId = taskItem.dataset.id;
 
