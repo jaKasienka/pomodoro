@@ -221,6 +221,29 @@ timerDisplay.addEventListener('click', () => {
       return { totalPoms: 0, totalScheduleMins: 0, display: '0m (Standby)', rawWorkMins: 0 };
     }
 
+      // 1. Every partial session rounds UP to a full 25-minute Pomodoro slot
+    const totalPoms = Math.ceil(totalRawWorkMins / 25);
+    
+    // 2. Every 4th Pom carries a long break; every other Pom carries a 5m short break
+    const totalLongBreaks = Math.floor(totalPoms / 4);
+    const totalShortBreaks = totalPoms - totalLongBreaks;
+
+    const focusTime = totalPoms * 25;
+    const breakTime = (totalShortBreaks * 5) + (totalLongBreaks * chosenLongBreakMins);
+    const totalScheduleMins = focusTime + breakTime;
+
+    const hrs = Math.floor(totalScheduleMins / 60);
+    const mins = totalScheduleMins % 60;
+    const formattedSchedule = hrs > 0 ? `${hrs}h ${mins > 0 ? mins + 'm' : ''}` : `${mins}m`;
+
+    return {
+      rawWorkMins: totalRawWorkMins,
+      totalPoms,
+      totalScheduleMins,
+      formattedSchedule,
+    };
+
+/* 
     const totalPoms = Math.ceil(totalRawWorkMins / 25);
     const fullSets = Math.floor(totalPoms / 4);
     const remainingPomsInSet = totalPoms % 4;
@@ -233,8 +256,10 @@ timerDisplay.addEventListener('click', () => {
     const hrs = Math.floor(totalScheduleMins / 60);
     const mins = totalScheduleMins % 60;
     const formattedSchedule = hrs > 0 ? `${hrs}h ${mins > 0 ? mins + 'm' : ''}` : `${mins}m`;
+ */
 
-    return {
+
+    /* return {
       rawWorkMins: totalRawWorkMins,
       totalPoms,
       fullSets,
@@ -242,7 +267,7 @@ timerDisplay.addEventListener('click', () => {
       totalScheduleMins,
       formattedSchedule,
       needsBreakChoice: fullSets > 0,
-    };
+    }; */
   }
 
   function saveAndRender() {
