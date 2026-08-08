@@ -1,7 +1,23 @@
-const POMODORO_SECONDS = 25 * 60;
+import {
+  POMODORO_SECONDS,
+  formatTime,
+  createFocusState,
+  createBreakState,
+  decrementTimer,
+  getStatusForState,
+  getTomatoFillPercent,
+  getRingProgressRatio,
+} from './timerLogic.mjs';
 
 const timerDisplay = document.getElementById('timerDisplay');
 const progressCircle = document.getElementById('progressCircle');
+const radius = progressCircle ? progressCircle.r.baseVal.value : 120;
+const CIRCUMFERENCE = 2 * Math.PI * radius;
+
+if (progressCircle) {
+  progressCircle.style.strokeDasharray = `${CIRCUMFERENCE} ${CIRCUMFERENCE}`;
+}
+
 const timerContainer = document.querySelector('.timer-container');
 const completionBanner = document.getElementById('completionBanner');
 const timerStart = document.getElementById('timer-start');
@@ -17,15 +33,22 @@ const taskInput = document.getElementById('task-input');
 const taskList = document.getElementById('task-list');
 const emptyState = document.getElementById('empty-state');
 
-let totalDuration = POMODORO_SECONDS;
-let timeRemaining = totalDuration;
+let timerState = createFocusState();
+let totalDuration = timerState.totalDuration;
+let timeRemaining = timerState.timeRemaining;
 let timerInterval = null;
-let isRunning = false;
+let isRunning = timerState.isRunning;
+let timerMode = timerState.mode;
 
-function formatTime(totalSeconds) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+function syncTimerFromState() {
+  totalDuration = timerState.totalDuration;
+  timeRemaining = timerState.timeRemaining;
+  isRunning = timerState.isRunning;
+  timerMode = timerState.mode;
+}
+
+function formatTimeDisplay(totalSeconds) {
+  return formatTime(totalSeconds);
 }
 
 // Updates just ONE task row and total schedule instantly
@@ -59,16 +82,55 @@ function updateSingleTaskUI(task, taskItemElement) {
 }
 
 function updateDisplay(seconds) {
-  timerDisplay.textContent = formatTime(seconds);
+  timerDisplay.textContent = formatTimeDisplay(seconds);
   setRingProgress(seconds, totalDuration);
   updateTomatoVisualizer(seconds);
 }
 
 function updateTomatoVisualizer(secondsLeft) {
   if (!tomatoFillLevel) return;
-  const fillRatio = 1 - (secondsLeft / TOTAL_FOCUS_SECONDS);
-  const heightPercent = Math.max(0, Math.min(100, fillRatio * 100));
-  tomatoFillLevel.style.height = `${heightPercent}%`;
+  tomatoFillLevel.style.height = `${getTomatoFillPercent(timerState)}%`;
+}
+
+function applyTimerModeUI() {
+  if (!timerContainer) return;
+  timerContainer.classList.toggle('break-mode', timerMode === 'break');
+}
+
+function enterFocusMode(options = {}) {
+  const { autoStart = false } = options;
+  timerState = createFocusState({ autoStart });
+  syncTimerFromState();
+  applyTimerModeUI();
+  if (timerContainer) timerContainer.classList.remove('completed');
+  if (completionBanner) completionBanner.classList.remove('active');
+  updateDisplay(timeRemaining);
+
+  if (autoStart) {
+    setTimerControls();
+    timerDisplay.classList.add('pomodoro__display--running');
+    timerStatus.textContent = getStatusForState(timerState);
+    timerInterval = setInterval(tick, 1000);
+    return;
+  }
+
+  setTimerControls();
+  timerDisplay.classList.remove('pomodoro__display--running');
+  timerStatus.textContent = getStatusForState(timerState);
+}
+
+function enterBreakMode() {
+  stopTimerInterval();
+  timerState = createBreakState();
+  syncTimerFromState();
+  applyTimerModeUI();
+  if (timerContainer) timerContainer.classList.remove('completed');
+  if (completionBanner) completionBanner.classList.remove('active');
+  updateDisplay(timeRemaining);
+  setTimerControls();
+  timerDisplay.classList.add('pomodoro__display--running');
+  timerStatus.textContent = getStatusForState(timerState);
+  timerInterval = setInterval(tick, 1000);
 }
 
 function updateTimerUI() {
@@ -77,7 +139,11 @@ function updateTimerUI() {
 
 function setRingProgress(secondsLeft, totalSeconds) {
   if (!progressCircle) return;
-  const progressRatio = secondsLeft / totalSeconds;
+  const progressRatio = getRingProgressRatio({
+    ...timerState,
+    timeRemaining: secondsLeft,
+    totalDuration: totalSeconds,
+  });
   const offset = CIRCUMFERENCE - (progressRatio * CIRCUMFERENCE);
   progressCircle.style.strokeDashoffset = offset;
 }
@@ -105,21 +171,30 @@ function setTimerControls() {
   timerPause.disabled = !isRunning;
 }
 
+function stopTimerInterval() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+}
+
 function tick() {
-  if (timeRemaining > 0) {
-    timeRemaining -= 1;
+  const { state, event } = decrementTimer(timerState);
+
+  if (event === null) {
+    timerState = state;
+    syncTimerFromState();
     updateDisplay(timeRemaining);
     return;
   }
 
-  clearInterval(timerInterval);
-  timerInterval = null;
-  isRunning = false;
-  setTimerControls();
-  timerDisplay.classList.remove('pomodoro__display--running');
-  timerStatus.textContent = 'Session complete! Take a break.';
-  handleSessionComplete();
+  stopTimerInterval();
   playCompletionAlert();
+
+  if (event === 'focus-complete') {
+    enterBreakMode();
+    return;
+  }
+
+  enterFocusMode();
 }
 
 function playCompletionAlert() {
@@ -141,23 +216,25 @@ function playCompletionAlert() {
 
 timerStart.addEventListener('click', () => {
   if (isRunning) return;
-  isRunning = true;
+  timerState = { ...timerState, isRunning: true };
+  syncTimerFromState();
   if (timerContainer) timerContainer.classList.remove('completed');
   if (completionBanner) completionBanner.classList.remove('active');
   setTimerControls();
   timerDisplay.classList.add('pomodoro__display--running');
-  timerStatus.textContent = 'Focus session in progress...';
+  timerStatus.textContent = getStatusForState(timerState);
   timerInterval = setInterval(tick, 1000);
 });
 
 timerPause.addEventListener('click', () => {
   if (!isRunning) return;
-  isRunning = false;
   clearInterval(timerInterval);
   timerInterval = null;
+  timerState = { ...timerState, isRunning: false };
+  syncTimerFromState();
   setTimerControls();
   timerDisplay.classList.remove('pomodoro__display--running');
-  timerStatus.textContent = 'Paused';
+  timerStatus.textContent = getStatusForState(timerState);
 });
 
 timerReset.addEventListener('click', () => {
@@ -166,18 +243,20 @@ timerReset.addEventListener('click', () => {
 
 timerDisplay.addEventListener('click', () => {
   if (isRunning) {
-    isRunning = false;
     clearInterval(timerInterval);
     timerInterval = null;
+    timerState = { ...timerState, isRunning: false };
+    syncTimerFromState();
     setTimerControls();
     timerDisplay.classList.remove('pomodoro__display--running');
-    timerStatus.textContent = 'Paused';
-  } 
+    timerStatus.textContent = getStatusForState(timerState);
+  }
   else if (!isRunning && timeRemaining > 0) {
-    isRunning = true;
+    timerState = { ...timerState, isRunning: true };
+    syncTimerFromState();
     setTimerControls();
     timerDisplay.classList.add('pomodoro__display--running');
-    timerStatus.textContent = 'Focus session in progress...';
+    timerStatus.textContent = getStatusForState(timerState);
     timerInterval = setInterval(tick, 1000);
   }
 });
@@ -595,14 +674,6 @@ timerDisplay.addEventListener('click', () => {
 
 })();
 
-const radius = progressCircle ? progressCircle.r.baseVal.value : 120;
-const CIRCUMFERENCE = 2 * Math.PI * radius;
-
-if (progressCircle) {
-  progressCircle.style.strokeDasharray = `${CIRCUMFERENCE} ${CIRCUMFERENCE}`;
-  progressCircle.style.strokeDashoffset = 0;
-}
-
 function initRainyMode() {
   const canvas = document.getElementById('rainCanvas');
   const ctx = canvas ? canvas.getContext('2d') : null;
@@ -758,14 +829,7 @@ initRainyMode();
 function resetTimer() {
   clearInterval(timerInterval);
   timerInterval = null;
-  timeRemaining = totalDuration;
-  isRunning = false;
-  updateDisplay(timeRemaining);
-  setTimerControls();
-  timerDisplay.classList.remove('pomodoro__display--running');
-  timerStatus.textContent = 'Ready to focus';
-  if (timerContainer) timerContainer.classList.remove('completed');
-  if (completionBanner) completionBanner.classList.remove('active');
+  enterFocusMode();
 }
 
 updateTimerUI();
