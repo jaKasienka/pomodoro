@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Task Manager</title>
+  <title>Pomodoro Task Manager</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -11,6 +11,7 @@
 </head>
 <body>
   <canvas id="rainCanvas" class="rain-canvas" aria-hidden="true"></canvas>
+  <canvas id="confettiCanvas" class="confetti-canvas" aria-hidden="true"></canvas>
   <button id="moodBtn" class="mood-btn" type="button" aria-pressed="false">
     <span class="btn-text">Let it rain</span>
   </button>
@@ -39,23 +40,44 @@
 
   <div class="app">
     <header class="header">
-      <h1 class="header__title">Task Manager</h1>
-      <p class="header__subtitle">Focus with Pomodoro, collect your tasks</p>
+      <h1 class="header__title">Pomodoro Task Manager</h1>
+      <p class="header__subtitle">Focus with Pomodoro and track your tasks</p>
     </header>
 
     <main class="main">
       <section class="panel pomodoro" aria-label="Pomodoro timer">
         <h2 class="panel__title">Pomodoro</h2>
         <div class="timer-container">
-          <svg class="progress-ring" width="280" height="280">
+          <svg class="progress-ring progress-ring--session" id="sessionProgressRing" width="300" height="300" aria-hidden="true">
+            <circle
+              class="progress-ring__track progress-ring__track--session"
+              stroke-width="8"
+              fill="transparent"
+              r="139"
+              cx="150"
+              cy="150"
+            />
+            <circle
+              id="sessionProgressCircle"
+              class="progress-ring__indicator progress-ring__indicator--session"
+              stroke="var(--color-accent)"
+              stroke-width="8"
+              stroke-linecap="round"
+              fill="transparent"
+              r="139"
+              cx="150"
+              cy="150"
+            />
+          </svg>
+
+          <svg class="progress-ring progress-ring--pomodoro" width="300" height="300">
             <circle
               class="progress-ring__track"
-              stroke="rgba(255, 255, 255, 0.1)"
               stroke-width="8"
               fill="transparent"
               r="120"
-              cx="140"
-              cy="140"
+              cx="150"
+              cy="150"
             />
             <circle
               id="progressCircle"
@@ -65,12 +87,18 @@
               stroke-linecap="round"
               fill="transparent"
               r="120"
-              cx="140"
-              cy="140"
+              cx="150"
+              cy="150"
             />
           </svg>
 
-          <div class="pomodoro__display" id="timerDisplay" aria-live="polite">25:00</div>
+          <div class="timer-stack">
+            <div class="pomodoro__display" id="timerDisplay">25:00</div>
+            <div class="pomodoro__session-meta">
+              <span class="pomodoro__session-label">Session remaining</span>
+              <div class="pomodoro__session-display" id="sessionTimerDisplay">00:00</div>
+            </div>
+          </div>
         </div>
 
         <div class="pomodoro__controls">
@@ -78,9 +106,21 @@
           <button class="btn btn--secondary" id="timer-pause" type="button" disabled>Pause</button>
           <button class="btn btn--ghost" id="timer-reset" type="button">Reset</button>
         </div>
-        <p class="pomodoro__status" id="timer-status">Ready to focus</p>
-        <div id="completionBanner" class="completion-banner">
-          ✨ Session finished! Time for a well-deserved break.
+        <div class="pomodoro__status" id="timer-status" aria-live="polite">Ready to focus</div>
+        <div id="completionBanner" class="completion-banner" aria-live="polite" hidden>
+          <span class="completion-banner__emoji" aria-hidden="true">✨</span>
+          <span class="completion-banner__title"></span>
+          <span class="completion-banner__headline"></span>
+          <span class="completion-banner__body"></span>
+        </div>
+
+        <div class="long-break-presets" aria-label="Long break duration">
+          <span class="long-break-presets__label">Long Break:</span>
+          <div class="long-break-presets__chips">
+            <button type="button" class="preset-chip long-break-chip" data-minutes="15">15 min</button>
+            <button type="button" class="preset-chip long-break-chip" data-minutes="20">20 min</button>
+            <button type="button" class="preset-chip long-break-chip" data-minutes="30">30 min</button>
+          </div>
         </div>
       </section>
 
@@ -96,6 +136,15 @@
             <div class="tomato-leaf-vessel leaf-vessel-r"></div>
             <div class="glass-reflection-vessel"></div>
           </div>
+          <button
+            type="button"
+            class="tomato-pop-out-btn"
+            id="tomatoPopOutBtn"
+            hidden
+            aria-label="Pop out mini pomodoro"
+          >
+            Pop out ↗
+          </button>
         </div>
 
         <div class="task-summary-card">
@@ -104,50 +153,31 @@
             <span id="timeRemainingText" class="task-summary__time">0m planned (All clear! ☕)</span>
           </div>
 
-          <p class="task-summary__note">
-            A Pomodoro session is 25 minutes of focused work followed by a 5-minute break. After 4 Pomodoro sessions, you can take a longer break (default 20 minutes).
-            The last minutes will be always rounded up to the next Pomodoro session. For example, if you have 30 minutes of tasks, it will be rounded up to 55 minutes (2 Pom sessions + 5 min break). 
-            You can edit the time for each task by clicking on the time value.
-          </p>
+          <div class="task-summary__notes" id="taskSummaryNotesWrap">
+            <ul class="task-summary__note" id="taskSummaryNotes">
+              <li>Work & Breaks: 25m focus / 5m break.</li>
+              <li>Smart Rounding: Task times round up to full 25m units.</li>
+              <li>Edit Time: Click any task time to adjust.</li>
+              <li>Choose Break Length: Select 15, 20, or 30 min for long breaks after 4th Pom.</li>
+            </ul>
+            <button
+              type="button"
+              class="task-summary__read-more"
+              id="taskSummaryReadMore"
+              aria-expanded="false"
+              aria-controls="taskSummaryNotes"
+            >
+              Read more
+            </button>
+          </div>
 
           <div class="progress-bar-track">
             <div id="taskProgressBar" class="progress-bar-fill" style="width: 0%"></div>
           </div>
         </div>
 
-        <!-- <div class="long-break-card locked" id="longBreakCard">
-          <div class="lock-overlay" id="lockOverlay">
-            <span class="lock-icon">🔒</span>
-            <span class="lock-text">Unlocks when planned work > 100 min</span>
-          </div>
-
-          <div class="card-header">
-            <span class="card-title">☕ Long Break Duration</span>
-            <span class="card-subtitle">Set break time between 4-Pomodoro sets</span>
-          </div>
-
-          <div class="dial-container">
-            <div class="rotary-dial" id="breakDial">
-              <svg class="dial-svg" viewBox="0 0 120 120">
-                <circle class="dial-track" cx="60" cy="60" r="50" fill="none" stroke="rgba(255, 255, 255, 0.15)" stroke-width="8" stroke-linecap="round"></circle>
-                <circle id="dialProgress" class="dial-progress" cx="60" cy="60" r="50" fill="none" stroke="#38bdf8" stroke-width="8" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314"></circle>
-              </svg>
-              <div class="dial-center">
-                <span id="longBreakValue" class="dial-number">20</span>
-                <span class="dial-unit">min</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="step-notches">
-            <span class="notch-label" data-value="15">15m</span>
-            <span class="notch-label active" data-value="20">20m</span>
-            <span class="notch-label" data-value="25">25m</span>
-            <span class="notch-label" data-value="30">30m</span>
-          </div>
-        </div> -->
-
         <form class="task-form" id="task-form">
+          <label class="visually-hidden" for="task-input">New task</label>
           <input
             class="task-form__input"
             id="task-input"
@@ -163,18 +193,12 @@
         <div class="task-presets">
           <span class="task-presets__label">Quick add:</span>
           <div class="task-presets__chips">
-            <!-- <button type="button" class="preset-chip" data-task="Outline presentation slides">
-              Prep Presentation
-            </button> -->
             <button type="button" class="preset-chip" data-task="Practice speech techniques">
               Practice Speech
             </button>
             <button type="button" class="preset-chip" data-task="Practice foreign language vocabulary">
               Practice Languages
             </button>
-            <!-- <button type="button" class="preset-chip" data-task="Drink water & posture check">
-              Posture & Water
-            </button> -->
             <button type="button" class="preset-chip" data-task="Practice instrument scales">
               Practice Scales
             </button>
@@ -187,6 +211,23 @@
       </section>
     </main>
   </div>
+
+  <dialog id="resetConfirmDialog" class="app-dialog" aria-labelledby="resetConfirmTitle">
+    <p class="app-dialog__message" id="resetConfirmTitle">Reset timer? Progress will be lost.</p>
+    <div class="app-dialog__actions">
+      <button type="button" class="btn btn--ghost" id="resetConfirmCancel">Cancel</button>
+      <button type="button" class="btn btn--primary" id="resetConfirmOk">Reset</button>
+    </div>
+  </dialog>
+
+  <dialog id="pipPromptDialog" class="app-dialog" aria-labelledby="pipPromptTitle">
+    <p class="app-dialog__title" id="pipPromptTitle">Mini pomodoro pop-out</p>
+    <p class="app-dialog__message">Allow a small timer window while you focus? You can drag it anywhere on screen. You can close it anytime.</p>
+    <div class="app-dialog__actions">
+      <button type="button" class="btn btn--ghost" id="pipPromptDecline">Not now</button>
+      <button type="button" class="btn btn--primary" id="pipPromptAllow">Allow</button>
+    </div>
+  </dialog>
 
   <script type="module" src="/js/app.js"></script>
 </body>
