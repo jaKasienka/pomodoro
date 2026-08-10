@@ -1,25 +1,66 @@
 import {
   POMODORO_SECONDS,
   formatTime,
-  createFocusState,
-  createBreakState,
-  decrementTimer,
-  getStatusForState,
+  formatSessionTime,
+  calculateDaySchedule,
+  DEFAULT_LONG_BREAK_MINS,
+  LONG_BREAK_OPTIONS,
+  createSessionState,
+  createDefaultSessionState,
+  decrementSessionTimer,
+  getStatusForSessionState,
+  getStatusContentForSessionState,
+  getCompletionStatusContent,
   getTomatoFillPercent,
   getRingProgressRatio,
+  getSessionRingProgressRatio,
 } from './timerLogic.mjs';
+import {
+  isTomatoPipSupported,
+  isTomatoPipOpen,
+  wasTomatoPipDismissed,
+  resetTomatoPipDismissed,
+  setTomatoPipDismissHandler,
+  openTomatoPip,
+  closeTomatoPip,
+  closeTomatoPipForModal,
+  syncTomatoPip,
+  syncTomatoPipRain,
+  celebrateTomatoPipCompletion,
+} from './tomatoPip.mjs';
+import { createRainAnimator } from './rainEffect.mjs';
+import { launchConfetti } from './confettiEffect.mjs';
+import {
+  ensureSegmentNotificationPermission,
+  notifySegmentStart,
+  notifyDayComplete,
+} from './segmentNotifications.mjs';
 
 const timerDisplay = document.getElementById('timerDisplay');
+const sessionTimerDisplay = document.getElementById('sessionTimerDisplay');
 const progressCircle = document.getElementById('progressCircle');
+const sessionProgressCircle = document.getElementById('sessionProgressCircle');
+const sessionProgressRing = document.getElementById('sessionProgressRing');
 const radius = progressCircle ? progressCircle.r.baseVal.value : 120;
 const CIRCUMFERENCE = 2 * Math.PI * radius;
+const sessionRadius = sessionProgressCircle ? sessionProgressCircle.r.baseVal.value : 139;
+const SESSION_CIRCUMFERENCE = 2 * Math.PI * sessionRadius;
 
 if (progressCircle) {
   progressCircle.style.strokeDasharray = `${CIRCUMFERENCE} ${CIRCUMFERENCE}`;
 }
 
+if (sessionProgressCircle) {
+  sessionProgressCircle.style.strokeDasharray = `${SESSION_CIRCUMFERENCE} ${SESSION_CIRCUMFERENCE}`;
+}
+
 const timerContainer = document.querySelector('.timer-container');
+const pomodoroPanel = document.querySelector('.panel.pomodoro');
 const completionBanner = document.getElementById('completionBanner');
+const completionBannerTitle = completionBanner?.querySelector('.completion-banner__title');
+const completionBannerHeadline = completionBanner?.querySelector('.completion-banner__headline');
+const completionBannerBody = completionBanner?.querySelector('.completion-banner__body');
+const confettiCanvas = document.getElementById('confettiCanvas');
 const timerStart = document.getElementById('timer-start');
 const timerPause = document.getElementById('timer-pause');
 const timerReset = document.getElementById('timer-reset');
@@ -27,28 +68,217 @@ const timerStatus = document.getElementById('timer-status');
 
 const taskForm = document.getElementById('task-form');
 const tomatoFillLevel = document.getElementById('tomatoFillLevel');
+const tomatoPopOutBtn = document.getElementById('tomatoPopOutBtn');
+const longBreakChips = document.querySelectorAll('.long-break-chip');
+
+const LONG_BREAK_STORAGE_KEY = 'longBreakMinutes';
+const PIP_PREFERENCE_KEY = 'tomatoPipPreference';
+
+const resetConfirmDialog = document.getElementById('resetConfirmDialog');
+const resetConfirmCancel = document.getElementById('resetConfirmCancel');
+const resetConfirmOk = document.getElementById('resetConfirmOk');
+const pipPromptDialog = document.getElementById('pipPromptDialog');
+const pipPromptDecline = document.getElementById('pipPromptDecline');
+const pipPromptAllow = document.getElementById('pipPromptAllow');
 
 const TOTAL_FOCUS_SECONDS = POMODORO_SECONDS;
 const taskInput = document.getElementById('task-input');
 const taskList = document.getElementById('task-list');
-const emptyState = document.getElementById('empty-state');
 
-let timerState = createFocusState();
-let totalDuration = timerState.totalDuration;
-let timeRemaining = timerState.timeRemaining;
+let sessionState = createDefaultSessionState();
 let timerInterval = null;
-let isRunning = timerState.isRunning;
-let timerMode = timerState.mode;
+let reopenPipAfterResetCancel = false;
+let isRunning = sessionState?.isRunning ?? false;
+let timerMode = sessionState?.mode ?? 'focus';
+let totalDuration = sessionState?.totalDuration ?? POMODORO_SECONDS;
+let timeRemaining = sessionState?.timeRemaining ?? POMODORO_SECONDS;
 
-function syncTimerFromState() {
-  totalDuration = timerState.totalDuration;
-  timeRemaining = timerState.timeRemaining;
-  isRunning = timerState.isRunning;
-  timerMode = timerState.mode;
+function syncTimerFromSession() {
+  if (!sessionState) return;
+  totalDuration = sessionState.totalDuration;
+  timeRemaining = sessionState.timeRemaining;
+  isRunning = sessionState.isRunning;
+  timerMode = sessionState.mode;
+}
+
+function getLongBreakMinutes() {
+  const stored = Number(localStorage.getItem(LONG_BREAK_STORAGE_KEY));
+  return LONG_BREAK_OPTIONS.includes(stored) ? stored : DEFAULT_LONG_BREAK_MINS;
+}
+
+function setLongBreakMinutes(minutes) {
+  const value = LONG_BREAK_OPTIONS.includes(minutes) ? minutes : DEFAULT_LONG_BREAK_MINS;
+  localStorage.setItem(LONG_BREAK_STORAGE_KEY, String(value));
+  updateLongBreakPillsUI();
+
+  if (!isRunning && typeof window.updateOverallScheduleSummary === 'function') {
+    window.updateOverallScheduleSummary();
+  } else if (!isRunning && typeof window.refreshSessionPlan === 'function') {
+    window.refreshSessionPlan();
+  }
+}
+
+function updateLongBreakPillsUI() {
+  const selected = getLongBreakMinutes();
+
+  longBreakChips.forEach((chip) => {
+    const minutes = Number(chip.dataset.minutes);
+    const isSelected = minutes === selected;
+    chip.classList.toggle('is-active', isSelected);
+    chip.setAttribute('aria-pressed', String(isSelected));
+    chip.disabled = isRunning || sessionState?.isComplete;
+  });
+}
+
+function getActiveSchedule() {
+  if (typeof window.getPomodoroSchedule === 'function') {
+    return window.getPomodoroSchedule();
+  }
+
+  return calculateDaySchedule(0);
+}
+
+function loadSessionPlan() {
+  const schedule = getActiveSchedule();
+
+  if (schedule.totalPoms > 0) {
+    sessionState = createSessionState(schedule.segments, {
+      showSessionRing: schedule.showSessionRing,
+    });
+  } else {
+    sessionState = createDefaultSessionState();
+  }
+
+  syncTimerFromSession();
+  applySessionUI();
+  updateDisplay(timeRemaining);
+}
+
+function shouldShowSessionUI() {
+  return Boolean(sessionState?.showSessionRing);
+}
+
+function applySessionUI() {
+  if (!timerContainer || !sessionState) return;
+  timerContainer.classList.toggle('break-mode', sessionState.mode === 'break');
+  timerContainer.classList.toggle('show-session-timer', shouldShowSessionUI());
+
+  if (sessionProgressRing) {
+    sessionProgressRing.setAttribute('aria-hidden', String(!shouldShowSessionUI()));
+  }
+
+  syncRainWithSession();
+}
+
+function syncTomatoPipState() {
+  if (!sessionState) return;
+
+  const completionContent = getCompletionStatusContent();
+
+  syncTomatoPip({
+    fillPercent: getTomatoFillPercent(sessionState),
+    timerText: formatTimeDisplay(timeRemaining),
+    isBreak: sessionState.mode === 'break',
+    isComplete: sessionState.isComplete,
+    completionText: completionContent.headline,
+  });
+}
+
+function updatePopOutButton() {
+  if (!tomatoPopOutBtn) return;
+
+  const sessionActive = Boolean(
+    sessionState
+    && !sessionState.isComplete
+    && timeRemaining > 0,
+  );
+
+  const shouldShow = isTomatoPipSupported()
+    && sessionActive
+    && !isTomatoPipOpen()
+    && wasTomatoPipDismissed();
+
+  tomatoPopOutBtn.hidden = !shouldShow;
+}
+
+async function openTomatoPipIfAllowed() {
+  if (!isTomatoPipSupported() || wasTomatoPipDismissed() || !isRunning || isTomatoPipOpen()) {
+    return;
+  }
+
+  const preference = localStorage.getItem(PIP_PREFERENCE_KEY);
+
+  if (preference === 'declined') return;
+
+  if (preference === 'allowed') {
+    await openTomatoPip();
+    syncTomatoPipState();
+    return;
+  }
+
+  if (!pipPromptDialog || !pipPromptAllow || !pipPromptDecline) return;
+
+  const choice = await new Promise((resolve) => {
+    const cleanup = () => {
+      pipPromptAllow.removeEventListener('click', onAllow);
+      pipPromptDecline.removeEventListener('click', onDecline);
+      pipPromptDialog.removeEventListener('cancel', onDecline);
+      pipPromptDialog.close();
+    };
+
+    const onAllow = () => {
+      cleanup();
+      resolve('allowed');
+    };
+
+    const onDecline = () => {
+      cleanup();
+      resolve('declined');
+    };
+
+    pipPromptAllow.addEventListener('click', onAllow);
+    pipPromptDecline.addEventListener('click', onDecline);
+    pipPromptDialog.addEventListener('cancel', onDecline);
+    pipPromptDialog.showModal();
+  });
+
+  localStorage.setItem(PIP_PREFERENCE_KEY, choice);
+
+  if (choice === 'allowed' && isRunning && !wasTomatoPipDismissed()) {
+    await openTomatoPip();
+    syncTomatoPipState();
+  }
+}
+
+function stopTomatoPipSession() {
+  closeTomatoPip();
+  resetTomatoPipDismissed();
+  updatePopOutButton();
 }
 
 function formatTimeDisplay(totalSeconds) {
   return formatTime(totalSeconds);
+}
+
+setTomatoPipDismissHandler(updatePopOutButton);
+
+if (tomatoPopOutBtn) {
+  tomatoPopOutBtn.addEventListener('click', async () => {
+    resetTomatoPipDismissed();
+    localStorage.setItem(PIP_PREFERENCE_KEY, 'allowed');
+    await openTomatoPip();
+    syncTomatoPipState();
+    updatePopOutButton();
+  });
+}
+
+function shakePresetChip(chip) {
+  chip.classList.remove('preset-chip--shake');
+  void chip.offsetWidth;
+  chip.classList.add('preset-chip--shake');
+  chip.addEventListener('animationend', () => {
+    chip.classList.remove('preset-chip--shake');
+  }, { once: true });
 }
 
 // Updates just ONE task row and total schedule instantly
@@ -74,101 +304,169 @@ function updateSingleTaskUI(task, taskItemElement) {
   // 3. Save to localStorage immediately
   localStorage.setItem('pomodoro_tasks', JSON.stringify(tasks));
 
-  // 4. Recalculate total schedule and check if Long Break unlocks
+  // 4. Recalculate total schedule
   updateOverallScheduleSummary();
-  if (typeof checkLongBreakUnlockStatus === 'function') {
-    checkLongBreakUnlockStatus();
-  }
 }
 
-function updateDisplay(seconds) {
-  timerDisplay.textContent = formatTimeDisplay(seconds);
-  setRingProgress(seconds, totalDuration);
-  updateTomatoVisualizer(seconds);
+let stopConfetti = null;
+
+function renderRichStatusLines(container, content, titleClass, headlineClass, bodyClass) {
+  container.replaceChildren(
+    createStatusLine(titleClass, content.title),
+    createStatusLine(headlineClass, content.headline),
+    createStatusLine(bodyClass, content.body),
+  );
 }
 
-function updateTomatoVisualizer(secondsLeft) {
-  if (!tomatoFillLevel) return;
-  tomatoFillLevel.style.height = `${getTomatoFillPercent(timerState)}%`;
+function hideCompletionBanner() {
+  if (!completionBanner) return;
+  completionBanner.hidden = true;
+  completionBanner.classList.remove('active');
 }
 
-function applyTimerModeUI() {
-  if (!timerContainer) return;
-  timerContainer.classList.toggle('break-mode', timerMode === 'break');
-}
-
-function enterFocusMode(options = {}) {
-  const { autoStart = false } = options;
-  timerState = createFocusState({ autoStart });
-  syncTimerFromState();
-  applyTimerModeUI();
-  if (timerContainer) timerContainer.classList.remove('completed');
-  if (completionBanner) completionBanner.classList.remove('active');
-  updateDisplay(timeRemaining);
-
-  if (autoStart) {
-    setTimerControls();
-    timerDisplay.classList.add('pomodoro__display--running');
-    timerStatus.textContent = getStatusForState(timerState);
-    timerInterval = setInterval(tick, 1000);
+function showCompletionBanner(content) {
+  if (!completionBanner || !completionBannerTitle || !completionBannerHeadline || !completionBannerBody) {
     return;
   }
 
-  setTimerControls();
-  timerDisplay.classList.remove('pomodoro__display--running');
-  timerStatus.textContent = getStatusForState(timerState);
+  completionBannerTitle.textContent = content.title;
+  completionBannerHeadline.textContent = content.headline;
+  completionBannerBody.textContent = content.body;
+  completionBanner.hidden = false;
+  completionBanner.classList.add('active');
 }
 
-function enterBreakMode() {
-  stopTimerInterval();
-  timerState = createBreakState();
-  syncTimerFromState();
-  applyTimerModeUI();
-  if (timerContainer) timerContainer.classList.remove('completed');
-  if (completionBanner) completionBanner.classList.remove('active');
-  updateDisplay(timeRemaining);
-  setTimerControls();
-  timerDisplay.classList.add('pomodoro__display--running');
-  timerStatus.textContent = getStatusForState(timerState);
-  timerInterval = setInterval(tick, 1000);
+function updateTimerStatus() {
+  if (!timerStatus || !sessionState) return;
+
+  const content = getStatusContentForSessionState(sessionState);
+  timerStatus.classList.toggle('pomodoro__status--break', content.type === 'break');
+
+  if (content.type === 'complete') {
+    timerStatus.hidden = true;
+    showCompletionBanner(content);
+    return;
+  }
+
+  hideCompletionBanner();
+  timerStatus.hidden = false;
+
+  if (content.type === 'break') {
+    renderRichStatusLines(
+      timerStatus,
+      content,
+      'pomodoro__status-title',
+      'pomodoro__status-headline',
+      'pomodoro__status-body',
+    );
+    return;
+  }
+
+  timerStatus.textContent = content.text;
+}
+
+function createStatusLine(className, text) {
+  const line = document.createElement('span');
+  line.className = className;
+  line.textContent = text;
+  return line;
+}
+
+function updateDisplay(seconds) {
+  if (timerDisplay) {
+    timerDisplay.textContent = formatTimeDisplay(seconds);
+  }
+
+  setRingProgress(seconds, totalDuration);
+  setSessionRingProgress();
+  updateTomatoVisualizer(seconds);
+  updateTimerStatus();
+
+  if (sessionTimerDisplay && shouldShowSessionUI()) {
+    sessionTimerDisplay.textContent = formatSessionTime(sessionState.sessionTimeRemaining);
+  }
+}
+
+function updateTomatoVisualizer(secondsLeft) {
+  if (!tomatoFillLevel || !sessionState) return;
+  tomatoFillLevel.style.height = `${getTomatoFillPercent(sessionState)}%`;
+  syncTomatoPipState();
+}
+
+function setRingProgress(secondsLeft, segmentTotal) {
+  if (!progressCircle || !sessionState) return;
+  const progressRatio = getRingProgressRatio({
+    ...sessionState,
+    timeRemaining: secondsLeft,
+    totalDuration: segmentTotal,
+  });
+  const offset = CIRCUMFERENCE - (progressRatio * CIRCUMFERENCE);
+  progressCircle.style.strokeDashoffset = offset;
+}
+
+function setSessionRingProgress() {
+  if (!sessionProgressCircle || !shouldShowSessionUI()) return;
+  const progressRatio = getSessionRingProgressRatio(sessionState);
+  const offset = SESSION_CIRCUMFERENCE - (progressRatio * SESSION_CIRCUMFERENCE);
+  sessionProgressCircle.style.strokeDashoffset = offset;
 }
 
 function updateTimerUI() {
   updateDisplay(timeRemaining);
 }
 
-function setRingProgress(secondsLeft, totalSeconds) {
-  if (!progressCircle) return;
-  const progressRatio = getRingProgressRatio({
-    ...timerState,
-    timeRemaining: secondsLeft,
-    totalDuration: totalSeconds,
-  });
-  const offset = CIRCUMFERENCE - (progressRatio * CIRCUMFERENCE);
-  progressCircle.style.strokeDashoffset = offset;
-}
-
 function handleSessionComplete() {
   if (timerContainer) {
     timerContainer.classList.add('completed');
   }
-  if (completionBanner) {
-    completionBanner.classList.add('active');
+
+  if (stopConfetti) {
+    stopConfetti();
+    stopConfetti = null;
   }
 
-  if (document.documentElement.classList.contains('rain-mode')) {
-    const rainBtn = document.getElementById('moodBtn');
-    if (rainBtn) rainBtn.click();
+  if (confettiCanvas) {
+    const origin = timerContainer?.getBoundingClientRect();
+    stopConfetti = launchConfetti(confettiCanvas, {
+      originX: origin ? origin.left + origin.width / 2 : undefined,
+      originY: origin ? origin.top + origin.height * 0.35 : undefined,
+    });
   }
+
+  playCompletionAlert();
+  notifyDayComplete();
+
+  const completionContent = getCompletionStatusContent();
+  celebrateTomatoPipCompletion({
+    completionText: completionContent.headline,
+    timerText: formatTimeDisplay(0),
+  });
+
+  syncRainWithSession();
 }
 
-function triggerCompletion() {
-  handleSessionComplete();
+function setResetButtonStyle(isComplete) {
+  if (!timerReset) return;
+
+  timerReset.classList.toggle('btn--primary', isComplete);
+  timerReset.classList.toggle('btn--ghost', !isComplete);
 }
 
 function setTimerControls() {
+  if (sessionState?.isComplete) {
+    timerStart.disabled = true;
+    timerPause.disabled = true;
+    if (timerReset) timerReset.disabled = false;
+    setResetButtonStyle(true);
+    updateLongBreakPillsUI();
+    return;
+  }
+
   timerStart.disabled = isRunning;
   timerPause.disabled = !isRunning;
+  if (timerReset) timerReset.disabled = false;
+  setResetButtonStyle(false);
+  updateLongBreakPillsUI();
 }
 
 function stopTimerInterval() {
@@ -177,24 +475,71 @@ function stopTimerInterval() {
 }
 
 function tick() {
-  const { state, event } = decrementTimer(timerState);
+  if (!sessionState) return;
 
-  if (event === null) {
-    timerState = state;
-    syncTimerFromState();
-    updateDisplay(timeRemaining);
-    return;
+  const { state, event } = decrementSessionTimer(sessionState);
+  sessionState = state;
+  syncTimerFromSession();
+  applySessionUI();
+  updateDisplay(timeRemaining);
+
+  if (event && event !== 'session-complete') {
+    playCompletionAlert();
+    handleSegmentTransitionEvent(event);
   }
 
-  stopTimerInterval();
-  playCompletionAlert();
+  if (event === 'session-complete') {
+    stopTimerInterval();
+    sessionState.isRunning = false;
+    syncTimerFromSession();
+    setTimerControls();
+    timerDisplay.classList.remove('pomodoro__display--running');
+    updateTimerStatus();
+    handleSessionComplete();
+  }
 
+  syncRainAudioFadeBeforeBreak();
+}
+
+function handleSegmentTransitionEvent(event) {
   if (event === 'focus-complete') {
-    enterBreakMode();
+    notifySegmentStart('break');
     return;
   }
 
-  enterFocusMode();
+  if (event === 'break-complete') {
+    notifySegmentStart('focus');
+  }
+}
+
+function setLongBreakPresetsPosition(started) {
+  pomodoroPanel?.classList.toggle('pomodoro--started', started);
+}
+
+async function startTimerRun({ notifyFocusStart = false } = {}) {
+  if (!sessionState || sessionState.isComplete) return;
+
+  await ensureSegmentNotificationPermission();
+
+  if (notifyFocusStart && sessionState.mode === 'focus') {
+    notifySegmentStart('focus');
+  }
+
+  sessionState = { ...sessionState, isRunning: true };
+  rainPausedForTimer = false;
+  syncTimerFromSession();
+  if (timerContainer) timerContainer.classList.remove('completed');
+  hideCompletionBanner();
+  if (timerStatus) timerStatus.hidden = false;
+  setLongBreakPresetsPosition(true);
+  setTimerControls();
+  timerDisplay.classList.add('pomodoro__display--running');
+  updateTimerStatus();
+  timerInterval = setInterval(tick, 1000);
+  await openTomatoPipIfAllowed();
+  updatePopOutButton();
+  syncRainWithSession();
+  syncRainAudioFadeBeforeBreak();
 }
 
 function playCompletionAlert() {
@@ -215,49 +560,105 @@ function playCompletionAlert() {
 }
 
 timerStart.addEventListener('click', () => {
-  if (isRunning) return;
-  timerState = { ...timerState, isRunning: true };
-  syncTimerFromState();
-  if (timerContainer) timerContainer.classList.remove('completed');
-  if (completionBanner) completionBanner.classList.remove('active');
-  setTimerControls();
-  timerDisplay.classList.add('pomodoro__display--running');
-  timerStatus.textContent = getStatusForState(timerState);
-  timerInterval = setInterval(tick, 1000);
+  if (isRunning || !sessionState || sessionState.isComplete) return;
+  startTimerRun({ notifyFocusStart: true });
 });
 
 timerPause.addEventListener('click', () => {
-  if (!isRunning) return;
+  if (!isRunning || !sessionState) return;
   clearInterval(timerInterval);
   timerInterval = null;
-  timerState = { ...timerState, isRunning: false };
-  syncTimerFromState();
+  sessionState = { ...sessionState, isRunning: false };
+  rainPausedForTimer = true;
+  syncTimerFromSession();
   setTimerControls();
   timerDisplay.classList.remove('pomodoro__display--running');
-  timerStatus.textContent = getStatusForState(timerState);
+  updateTimerStatus();
+  syncRainWithSession();
+  updatePopOutButton();
 });
 
+function needsResetConfirmation() {
+  if (!sessionState || sessionState.isComplete) return false;
+  if (pomodoroPanel?.classList.contains('pomodoro--started')) return true;
+  if (isRunning) return true;
+  if (sessionState.segmentIndex > 0) return true;
+
+  const segmentDuration = sessionState.segments?.[sessionState.segmentIndex]?.duration;
+  if (segmentDuration != null && sessionState.timeRemaining < segmentDuration) return true;
+
+  return false;
+}
+
+function requestResetTimer() {
+  if (!needsResetConfirmation()) {
+    resetTimer();
+    return;
+  }
+
+  if (!resetConfirmDialog) {
+    resetTimer();
+    return;
+  }
+
+  reopenPipAfterResetCancel = isTomatoPipOpen();
+  if (reopenPipAfterResetCancel) {
+    closeTomatoPipForModal();
+  }
+
+  resetConfirmDialog.showModal();
+}
+
+function initResetConfirmDialog() {
+  if (!resetConfirmDialog) return;
+
+  resetConfirmCancel?.addEventListener('click', async () => {
+    resetConfirmDialog.close();
+
+    if (reopenPipAfterResetCancel && isRunning && !wasTomatoPipDismissed()) {
+      await openTomatoPip();
+      syncTomatoPipState();
+    }
+
+    reopenPipAfterResetCancel = false;
+  });
+
+  resetConfirmOk?.addEventListener('click', () => {
+    resetConfirmDialog.close();
+    reopenPipAfterResetCancel = false;
+    resetTimer();
+  });
+
+  resetConfirmDialog.addEventListener('cancel', async () => {
+    if (reopenPipAfterResetCancel && isRunning && !wasTomatoPipDismissed()) {
+      await openTomatoPip();
+      syncTomatoPipState();
+    }
+
+    reopenPipAfterResetCancel = false;
+  });
+}
+
 timerReset.addEventListener('click', () => {
-  resetTimer();
+  requestResetTimer();
 });
 
 timerDisplay.addEventListener('click', () => {
+  if (!sessionState || sessionState.isComplete) return;
+
   if (isRunning) {
     clearInterval(timerInterval);
     timerInterval = null;
-    timerState = { ...timerState, isRunning: false };
-    syncTimerFromState();
+    sessionState = { ...sessionState, isRunning: false };
+    rainPausedForTimer = true;
+    syncTimerFromSession();
     setTimerControls();
     timerDisplay.classList.remove('pomodoro__display--running');
-    timerStatus.textContent = getStatusForState(timerState);
-  }
-  else if (!isRunning && timeRemaining > 0) {
-    timerState = { ...timerState, isRunning: true };
-    syncTimerFromState();
-    setTimerControls();
-    timerDisplay.classList.add('pomodoro__display--running');
-    timerStatus.textContent = getStatusForState(timerState);
-    timerInterval = setInterval(tick, 1000);
+    updateTimerStatus();
+    syncRainWithSession();
+    updatePopOutButton();
+  } else if (timeRemaining > 0) {
+    startTimerRun();
   }
 });
 
@@ -293,62 +694,6 @@ timerDisplay.addEventListener('click', () => {
     return `${mins}m`;
   }
 
-  function calculateDaySchedule(activeTasks, chosenLongBreakMins = 20) {
-    const totalRawWorkMins = activeTasks.reduce((sum, task) => sum + (task.plannedMinutes || 0), 0);
-
-    if (totalRawWorkMins === 0) {
-      return { totalPoms: 0, totalScheduleMins: 0, display: '0m (Standby)', rawWorkMins: 0 };
-    }
-
-      // 1. Every partial session rounds UP to a full 25-minute Pomodoro slot
-    const totalPoms = Math.ceil(totalRawWorkMins / 25);
-    
-    // 2. Every 4th Pom carries a long break; every other Pom carries a 5m short break
-    const totalLongBreaks = Math.floor(totalPoms / 4);
-    const totalShortBreaks = totalPoms - totalLongBreaks;
-
-    const focusTime = totalPoms * 25;
-    const breakTime = (totalShortBreaks * 5) + (totalLongBreaks * chosenLongBreakMins);
-    const totalScheduleMins = focusTime + breakTime;
-
-    const hrs = Math.floor(totalScheduleMins / 60);
-    const mins = totalScheduleMins % 60;
-    const formattedSchedule = hrs > 0 ? `${hrs}h ${mins > 0 ? mins + 'm' : ''}` : `${mins}m`;
-
-    return {
-      rawWorkMins: totalRawWorkMins,
-      totalPoms,
-      totalScheduleMins,
-      formattedSchedule,
-    };
-
-/* 
-    const totalPoms = Math.ceil(totalRawWorkMins / 25);
-    const fullSets = Math.floor(totalPoms / 4);
-    const remainingPomsInSet = totalPoms % 4;
-    const totalShortBreaks = totalPoms > 0 ? Math.max(0, (totalPoms - 1) - fullSets) : 0;
-    const totalLongBreaks = fullSets;
-    const focusTime = totalPoms * 25;
-    const breakTime = (totalShortBreaks * 5) + (totalLongBreaks * chosenLongBreakMins);
-    const totalScheduleMins = focusTime + breakTime;
-
-    const hrs = Math.floor(totalScheduleMins / 60);
-    const mins = totalScheduleMins % 60;
-    const formattedSchedule = hrs > 0 ? `${hrs}h ${mins > 0 ? mins + 'm' : ''}` : `${mins}m`;
- */
-
-
-    /* return {
-      rawWorkMins: totalRawWorkMins,
-      totalPoms,
-      fullSets,
-      remainingPomsInSet,
-      totalScheduleMins,
-      formattedSchedule,
-      needsBreakChoice: fullSets > 0,
-    }; */
-  }
-
   function saveAndRender() {
     localStorage.setItem('pomodoro_tasks', JSON.stringify(tasks));
     renderTasks();
@@ -357,7 +702,10 @@ timerDisplay.addEventListener('click', () => {
 
   function updateOverallScheduleSummary() {
     const activeTasks = tasks.filter(t => !t.completed);
-    const schedule = calculateDaySchedule(activeTasks);
+    const schedule = calculateDaySchedule(
+      activeTasks.reduce((sum, task) => sum + (task.plannedMinutes || 0), 0),
+      getLongBreakMinutes(),
+    );
     const summaryEl = document.getElementById('timeRemainingText');
 
     if (summaryEl) {
@@ -373,64 +721,20 @@ timerDisplay.addEventListener('click', () => {
       const percentage = totalAllMinutes > 0 ? (totalCompletedMinutes / totalAllMinutes) * 100 : 0;
       progressBar.style.width = `${percentage}%`;
     }
-    // Keep long-break card state in sync
-    try { checkLongBreakUnlockStatus(); } catch (e) { /* ignore if not ready */ }
-  }
 
-  function checkLongBreakUnlockStatus() {
-    const cardEl = document.getElementById('longBreakCard');
-    if (!cardEl) return;
-
-    const totalRawWorkMins = tasks
-      .filter(t => !t.completed && (t.plannedMinutes ?? 25) > 0)
-      .reduce((sum, t) => sum + (t.plannedMinutes ?? 25), 0);
-
-    const isEligibleForLongBreak = totalRawWorkMins > 100;
-
-    if (isEligibleForLongBreak) {
-      cardEl.classList.remove('locked');
-      cardEl.classList.add('unlocked');
-      // enable interactions
-      const notches = document.querySelectorAll('.notch-label');
-      notches.forEach(n => n.style.pointerEvents = 'auto');
-    } else {
-      cardEl.classList.add('locked');
-      cardEl.classList.remove('unlocked');
-      const notches = document.querySelectorAll('.notch-label');
-      notches.forEach(n => n.style.pointerEvents = 'none');
+    if (!isRunning && typeof window.refreshSessionPlan === 'function') {
+      window.refreshSessionPlan();
     }
   }
 
-  function setLongBreakMinutes(mins) {
-    const v = Number(mins) || 20;
-    localStorage.setItem('longBreakMinutes', String(v));
-    const valueEl = document.getElementById('longBreakValue');
-    if (valueEl) valueEl.textContent = String(v);
-    const dialProgress = document.getElementById('dialProgress');
-    if (dialProgress) {
-      const total = parseFloat(dialProgress.getAttribute('stroke-dasharray')) || 314;
-      let progressRatio = 1;
+  window.getPomodoroSchedule = () => calculateDaySchedule(
+    tasks
+      .filter(t => !t.completed)
+      .reduce((sum, task) => sum + (task.plannedMinutes || 0), 0),
+    getLongBreakMinutes(),
+  );
 
-      if (v === 15) {
-        progressRatio = 0.5;
-      } else if (v === 20) {
-        progressRatio = 0.5 + (1 / 3) * 0.5;
-      } else if (v === 25) {
-        progressRatio = 0.5 + (2 / 3) * 0.5;
-      } else if (v === 30) {
-        progressRatio = 1;
-      } else {
-        progressRatio = Math.max(0, Math.min(1, (v - 15) / 15));
-      }
-
-      const offset = total - (progressRatio * total);
-      dialProgress.style.strokeDashoffset = offset;
-    }
-    // mark active notch
-    document.querySelectorAll('.notch-label').forEach(n => {
-      n.classList.toggle('active', Number(n.dataset.value) === v);
-    });
-  }
+  window.updateOverallScheduleSummary = updateOverallScheduleSummary;
 
   function renderTaskItem(task) {
     const rawMins = Number.isFinite(task.plannedMinutes) ? task.plannedMinutes : 25;
@@ -458,8 +762,8 @@ timerDisplay.addEventListener('click', () => {
       />
       <span class="time-unit-label">m</span>
     </div>
-    <button class="btn btn--save task-time-save-btn" title="Save time" data-id="${task.id}">✓</button>
-    <button class="btn btn--danger task-item__delete-btn">🗑️</button>
+    <button class="btn btn--save task-time-save-btn" title="Save time" aria-label="Save time" data-id="${task.id}">✓</button>
+    <button class="btn btn--danger task-item__delete-btn" aria-label="Delete task">🗑️</button>
   `;
   }
 
@@ -476,8 +780,6 @@ timerDisplay.addEventListener('click', () => {
       li.innerHTML = renderTaskItem(task);
       taskListEl.appendChild(li);
     });
-
-    if (emptyState) emptyState.style.display = tasks.length === 0 ? 'block' : 'none';
   }
 
   function escapeHTML(str) {
@@ -513,7 +815,10 @@ timerDisplay.addEventListener('click', () => {
       if (!taskText) return;
 
       const exists = tasks.some(t => t.text.toLowerCase() === taskText.toLowerCase());
-      if (exists) return;
+      if (exists) {
+        shakePresetChip(chip);
+        return;
+      }
 
       const newTask = {
         id: Date.now().toString(),
@@ -528,19 +833,61 @@ timerDisplay.addEventListener('click', () => {
     });
   }
 
+  function saveTaskTime(inputEl) {
+    const taskId = inputEl.dataset.id;
+    let newMinutes = parseInt(inputEl.value, 10);
+
+    if (isNaN(newMinutes) || newMinutes < 0) newMinutes = 0;
+    if (newMinutes > 480) newMinutes = 480;
+    newMinutes = Math.round(newMinutes / 5) * 5;
+
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    task.plannedMinutes = newMinutes;
+    inputEl.value = newMinutes;
+
+    const liEl = inputEl.closest('.task-item');
+    if (liEl) {
+      const isStandby = newMinutes === 0;
+      liEl.classList.toggle('task-item--standby', isStandby);
+
+      const timeTagEl = liEl.querySelector('.task-item__time-tag');
+      if (timeTagEl) {
+        timeTagEl.className = `task-item__time-tag ${isStandby ? 'muted' : ''}`;
+        timeTagEl.innerHTML = `⏱️ ${getTaskDurationString(newMinutes)}${isStandby ? '' : ` (${newMinutes}m)`}`;
+      }
+    }
+
+    localStorage.setItem('pomodoro_tasks', JSON.stringify(tasks));
+    updateOverallScheduleSummary();
+  }
+
   if (taskListEl) {
+    taskListEl.addEventListener('focusin', (e) => {
+      if (e.target.classList.contains('task-time-field')) {
+        e.target.select();
+      }
+    });
+
+    taskListEl.addEventListener('keydown', (e) => {
+      if (e.target.classList.contains('task-time-field') && e.key === 'Enter') {
+        e.preventDefault();
+        saveTaskTime(e.target);
+      }
+    });
+
     taskListEl.addEventListener('click', (e) => {
       const taskItem = e.target.closest('.task-item');
       if (!taskItem) return;
 
-    // A. Auto-select text immediately on click or focus
-    taskListEl.addEventListener('focusin', (e) => {
-      if (e.target.classList.contains('task-time-field')) {
-        e.target.select(); 
-      }
-    });  
-
       const taskId = taskItem.dataset.id;
+
+      if (e.target.closest('.task-time-save-btn')) {
+        const inputEl = taskItem.querySelector('.task-time-field');
+        if (inputEl) saveTaskTime(inputEl);
+        return;
+      }
 
       if (e.target.closest('.task-item__delete-btn')) {
         e.stopPropagation();
@@ -564,46 +911,6 @@ timerDisplay.addEventListener('click', () => {
           task.completedMinutes = task.completed ? task.plannedMinutes : 0;
           saveAndRender();
         }
-      }
-    });
-
-    taskListEl.addEventListener('change', (e) => {
-      if (!e.target.classList.contains('task-time-field')) return;
-
-      const inputEl = e.target;
-      const taskId = inputEl.dataset.id;
-      let newMinutes = parseInt(inputEl.value, 10);
-
-      if (isNaN(newMinutes) || newMinutes < 0) newMinutes = 0;
-      if (newMinutes > 480) newMinutes = 480;
-      newMinutes = Math.round(newMinutes / 5) * 5;
-
-      const task = tasks.find(t => t.id === taskId);
-      if (task) {
-        task.plannedMinutes = newMinutes;
-        
-        // 1. Force the input box to instantly show the rounded value (e.g. 23 becomes 25)
-        inputEl.value = newMinutes; 
-
-        // 2. Find the exact list item (li) for this task row
-        const liEl = inputEl.closest('.task-item');
-        if (liEl) {
-          // 3. Toggle the standby styling class instantly if minutes hit 0
-          const isStandby = newMinutes === 0;
-          liEl.classList.toggle('task-item--standby', isStandby);
-
-          // 4. Update the visual text badge inside this row immediately
-          const timeTagEl = liEl.querySelector('.task-item__time-tag');
-          if (timeTagEl) {
-            // Replicate your renderTaskItem logic here
-            timeTagEl.className = `task-item__time-tag ${isStandby ? 'muted' : ''}`;
-            timeTagEl.innerHTML = `⏱️ ${getTaskDurationString(newMinutes)}${isStandby ? '' : ` (${newMinutes}m)`}`;
-          }
-        }
-
-        // 5. Save and update the totals
-        localStorage.setItem('pomodoro_tasks', JSON.stringify(tasks));
-        updateOverallScheduleSummary();
       }
     });
 
@@ -657,38 +964,27 @@ timerDisplay.addEventListener('click', () => {
   renderTasks();
   updateOverallScheduleSummary();
 
-  // Initialize long break UI and wire notch interactions
-  // const savedLongBreak = Number(localStorage.getItem('longBreakMinutes')) || 20;
-  // safe-guard: define setLongBreakMinutes before call
-  // try { setLongBreakMinutes(savedLongBreak); } catch (e) { /* ignore */ }
-
-  // document.addEventListener('click', (e) => {
-    // const notch = e.target.closest('.notch-label');
-    // if (!notch) return;
-    // const cardEl = document.getElementById('longBreakCard');
-    // if (cardEl && cardEl.classList.contains('unlocked')) {
-      // const v = Number(notch.dataset.value) || 20;
-      // setLongBreakMinutes(v);
-    // }
-  // });
-
 })();
+
+let syncRainWithSession = () => {};
+let syncRainAudioFadeBeforeBreak = () => {};
+let rainPausedForTimer = false;
+
+const PRE_BREAK_RAIN_FADE_SECONDS = 3;
 
 function initRainyMode() {
   const canvas = document.getElementById('rainCanvas');
-  const ctx = canvas ? canvas.getContext('2d') : null;
   const toggleBtn = document.getElementById('moodBtn') || document.getElementById('rainToggleBtn');
   const btnText = toggleBtn ? toggleBtn.querySelector('.btn-text') : null;
   const audio = document.getElementById('rainAudio');
   const volumeSlider = document.getElementById('rainVolumeSlider');
-  const volumeControl = document.getElementById('rainVolumeControl');
 
-  if (!canvas || !ctx || !toggleBtn) return;
+  if (!canvas || !toggleBtn) return;
 
-  let drops = [];
-  let animationFrameId = null;
-  let isRainActive = false;
+  const rainAnimator = createRainAnimator(canvas);
   let fadeInterval = null;
+  let rainEnabledByUser = false;
+  let rainVisuallyActive = false;
   let targetVolume = volumeSlider ? parseFloat(volumeSlider.value) : 0.35;
 
   if (audio) {
@@ -728,6 +1024,86 @@ function initRainyMode() {
     }
   }
 
+  function setRainButtonLabel() {
+    const label = rainEnabledByUser ? 'Clear up' : 'Let it rain';
+
+    if (btnText) {
+      btnText.textContent = label;
+    } else {
+      toggleBtn.textContent = label;
+    }
+  }
+
+  function updateRainButtonUI() {
+    const isBreak = sessionState?.mode === 'break';
+    const isComplete = sessionState?.isComplete;
+    const buttonInactive = isBreak || isComplete;
+
+    toggleBtn.disabled = buttonInactive;
+    toggleBtn.setAttribute('aria-pressed', String(rainEnabledByUser));
+    setRainButtonLabel();
+  }
+
+  function setRainVisualActive(active) {
+    if (rainVisuallyActive === active) return;
+
+    rainVisuallyActive = active;
+    document.documentElement.classList.toggle('rain-mode', active);
+    syncTomatoPipRain(active);
+
+    if (active) {
+      rainAnimator.start();
+      fadeAudio('in');
+      return;
+    }
+
+    rainAnimator.stop();
+    fadeAudio('out');
+  }
+
+  syncRainWithSession = function syncRainWithSessionState() {
+    updateRainButtonUI();
+
+    if (sessionState?.isComplete) {
+      rainEnabledByUser = false;
+      setRainVisualActive(false);
+      return;
+    }
+
+    if (!rainEnabledByUser) {
+      setRainVisualActive(false);
+      return;
+    }
+
+    if (sessionState?.mode === 'break' || rainPausedForTimer) {
+      setRainVisualActive(false);
+      return;
+    }
+
+    setRainVisualActive(true);
+  };
+
+  syncRainAudioFadeBeforeBreak = function syncRainAudioFadeBeforeBreakState() {
+    if (!audio || !rainEnabledByUser || !rainVisuallyActive) return;
+
+    const inFocusRun = sessionState
+      && sessionState.mode === 'focus'
+      && !sessionState.isComplete
+      && isRunning;
+
+    if (!inFocusRun || timeRemaining > PRE_BREAK_RAIN_FADE_SECONDS) {
+      return;
+    }
+
+    clearInterval(fadeInterval);
+    fadeInterval = null;
+
+    if (timeRemaining > 0) {
+      const fadeRatio = timeRemaining / PRE_BREAK_RAIN_FADE_SECONDS;
+      audio.volume = Math.max(0, targetVolume * fadeRatio);
+    }
+  };
+
   if (volumeSlider) {
     volumeSlider.addEventListener('input', (event) => {
       targetVolume = parseFloat(event.target.value);
@@ -737,101 +1113,85 @@ function initRainyMode() {
     });
   }
 
-  function resizeCanvas() {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    canvas.style.width = `${window.innerWidth}px`;
-    canvas.style.height = `${window.innerHeight}px`;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
-  function createDrops() {
-    drops = [];
-    // Increase count slightly so we get sharp individual streaks
-    const count = Math.floor(window.innerWidth / 8); 
-    
-    for (let i = 0; i < count; i++) {
-      drops.push({
-        x: Math.random() * (window.innerWidth + 200) - 100,
-        y: Math.random() * window.innerHeight,
-        length: Math.random() * 35 + 25,       // Longer, defined streaks (25-60px)
-        speed: Math.random() * 14 + 18,        // Fast, crisp motion
-        opacity: Math.random() * 0.4 + 0.6,    // ⚡ Higher opacity (0.6 - 1.0) = sharper!
-        width: Math.random() * 0.8 + 0.8        // ⚡ Thinner, needle-sharp lines (0.8 - 1.6px)
-      });
-    }
-  }
-
-  function animate() {
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-
-    drops.forEach((drop) => {
-      ctx.beginPath();
-      ctx.moveTo(drop.x, drop.y);
-      ctx.lineTo(drop.x - drop.length * 0.15, drop.y + drop.length);
-
-      ctx.strokeStyle = `rgba(125, 211, 252, ${drop.opacity})`;
-      ctx.lineWidth = drop.width;
-      ctx.lineCap = 'round';
-      ctx.stroke();
-
-      drop.y += drop.speed;
-      drop.x -= drop.speed * 0.15;
-
-      if (drop.y > window.innerHeight) {
-        drop.y = -drop.length;
-        drop.x = Math.random() * (window.innerWidth + 200) - 50;
-      }
-    });
-
-    if (isRainActive) {
-      animationFrameId = requestAnimationFrame(animate);
-    }
-  }
-
   toggleBtn.addEventListener('click', () => {
-    isRainActive = !isRainActive;
-    document.documentElement.classList.toggle('rain-mode', isRainActive);
+    if (sessionState?.mode === 'break' || sessionState?.isComplete) return;
 
-    if (isRainActive) {
-      if (btnText) {
-        btnText.textContent = 'Clear up';
-      } else {
-        toggleBtn.textContent = 'Clear up';
-      }
-      resizeCanvas();
-      createDrops();
-      animate();
-      fadeAudio('in');
+    rainEnabledByUser = !rainEnabledByUser;
+
+    if (rainEnabledByUser) {
+      setRainVisualActive(true);
     } else {
-      if (btnText) {
-        btnText.textContent = 'Let it rain';
-      } else {
-        toggleBtn.textContent = 'Let it rain';
-      }
-      cancelAnimationFrame(animationFrameId);
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-      fadeAudio('out');
+      setRainVisualActive(false);
     }
+
+    updateRainButtonUI();
   });
 
   window.addEventListener('resize', () => {
-    if (isRainActive) {
-      resizeCanvas();
-      createDrops();
-    }
+    rainAnimator.resize();
   });
+
+  syncRainWithSession();
 }
 
 initRainyMode();
 
 function resetTimer() {
-  clearInterval(timerInterval);
-  timerInterval = null;
-  enterFocusMode();
+  stopTimerInterval();
+  rainPausedForTimer = false;
+  if (timerContainer) timerContainer.classList.remove('completed');
+  hideCompletionBanner();
+  if (stopConfetti) {
+    stopConfetti();
+    stopConfetti = null;
+  }
+  if (timerStatus) timerStatus.hidden = false;
+  setLongBreakPresetsPosition(false);
+  loadSessionPlan();
+  setTimerControls();
+  timerDisplay.classList.remove('pomodoro__display--running');
+  updateTimerStatus();
+  stopTomatoPipSession();
 }
 
+window.refreshSessionPlan = () => {
+  if (isRunning) return;
+  loadSessionPlan();
+  updateTimerStatus();
+};
+
+loadSessionPlan();
 updateTimerUI();
 setTimerControls();
-// Tasks are managed locally via localStorage; no server load needed
+updatePopOutButton();
+updateLongBreakPillsUI();
+initResetConfirmDialog();
+
+(function initLongBreakPresets() {
+  document.querySelectorAll('.long-break-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      if (isRunning || sessionState?.isComplete) return;
+      setLongBreakMinutes(Number(chip.dataset.minutes));
+    });
+  });
+})();
+
+(function initTaskSummaryNotes() {
+  const notesWrap = document.getElementById('taskSummaryNotesWrap');
+  const notesList = document.getElementById('taskSummaryNotes');
+  const readMoreBtn = document.getElementById('taskSummaryReadMore');
+
+  if (!notesWrap || !notesList || !readMoreBtn) return;
+
+  const items = notesList.querySelectorAll('li');
+  if (items.length <= 1) {
+    readMoreBtn.hidden = true;
+    return;
+  }
+
+  readMoreBtn.addEventListener('click', () => {
+    const isExpanded = notesWrap.classList.toggle('is-expanded');
+    readMoreBtn.setAttribute('aria-expanded', String(isExpanded));
+    readMoreBtn.textContent = isExpanded ? 'Read less' : 'Read more';
+  });
+})();
