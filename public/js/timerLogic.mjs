@@ -1,5 +1,5 @@
 // Set to true to run focus/break timers in seconds instead of minutes (UI testing).
-export const TEST_MODE = true;
+export const TEST_MODE = false;
 
 const POMODORO_MINS = 25;
 const BREAK_MINS = 5;
