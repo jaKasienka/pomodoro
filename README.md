@@ -1,6 +1,9 @@
 # Pomodoro Timer 🍅
 
-A focused time-management extension designed to complement standard To-Do workflows, helping strike a natural rhythm between focused deep work and timed recovery breaks.
+*A focused time-management extension designed to complement standard To-Do workflows, helping strike a natural rhythm between focused deep work and timed recovery breaks.*
+
+## Demo
+👉 [This site is live on Vercel](https://pomodoro-jet-zeta.vercel.app/)
 
 ---
 <img width="1501" height="725" alt="pomodoro main page" src="https://github.com/user-attachments/assets/4fec53e2-1362-496e-b932-58fbdcb0ed61" />
