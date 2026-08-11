@@ -3,7 +3,11 @@
 A focused time-management extension designed to complement standard To-Do workflows, helping strike a natural rhythm between focused deep work and timed recovery breaks.
 
 ---
-<img width="1503" height="726" alt="Pomodoro2" src="https://github.com/user-attachments/assets/fe31ccd2-72d9-4b8f-8574-769a57a96f77" />
+<img width="1501" height="725" alt="pomodoro main page" src="https://github.com/user-attachments/assets/4fec53e2-1362-496e-b932-58fbdcb0ed61" />
+
+<br></br>
+  
+<img width="1093" height="638" alt="pomodoro pop out window" src="https://github.com/user-attachments/assets/e135e5fc-5017-48fa-96a8-075c4aa78ac2" />
 
 ---
 
