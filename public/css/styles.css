@@ -374,18 +374,26 @@ body {
   }
 
   .panel {
-    width: var(--layout-panel-width);
-    max-width: 100%;
+    width: 100%;
+    max-width: var(--layout-panel-width);
+    margin-inline: auto;
     padding: var(--spacing-lg) var(--spacing-md);
+    box-sizing: border-box;
   }
 
   .panel.pomodoro {
     overflow: visible;
   }
 
+  .pomodoro {
+    width: 100%;
+  }
+
   .timer-container {
-    width: var(--layout-timer-size);
-    height: var(--layout-timer-size);
+    width: min(100%, var(--layout-timer-size));
+    height: min(100%, var(--layout-timer-size));
+    display: flex;
+    margin-inline: auto;
     overflow: visible;
   }
 
@@ -403,6 +411,57 @@ body {
   .mood-btn {
     top: calc(1rem + var(--layout-rain-controls-drop-compact));
     max-width: calc(100vw - 2rem);
+  }
+}
+
+@media (max-width: 442px) {
+  .app {
+    padding-inline: var(--spacing-sm);
+  }
+
+  .main {
+    justify-items: stretch;
+  }
+
+  .panel {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .panel.pomodoro {
+    max-width: 100%;
+  }
+
+  .timer-container {
+    width: min(100%, 260px);
+    height: min(100%, 260px);
+  }
+
+  .pomodoro__display {
+    width: min(148px, 58%);
+    height: min(148px, 58%);
+    font-size: clamp(2.1rem, 10.5vw, 2.75rem);
+    padding: 0.75rem 1rem;
+  }
+
+  .task-form {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-sm);
+  }
+
+  .task-form__input {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .task-form .btn {
+    align-self: flex-end;
+  }
+
+  .header__title {
+    font-size: 1.75rem;
   }
 }
 
@@ -514,7 +573,7 @@ hr {
 
 .timer-container {
   position: relative;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   width: 300px;
@@ -797,6 +856,7 @@ hr {
 
 .task-form__input {
   flex: 1;
+  min-width: 0;
   font-family: inherit;
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-regular);
