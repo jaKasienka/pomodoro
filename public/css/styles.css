@@ -454,19 +454,19 @@ body {
   }
 
   .task-form {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--spacing-sm);
+    flex-direction: row;
+    align-items: center;
   }
 
   .task-form__input {
-    flex: none;
-    width: 100%;
+    flex: 1;
+    width: auto;
     min-width: 0;
   }
 
   .task-form .btn {
-    align-self: flex-end;
+    flex-shrink: 0;
+    align-self: auto;
   }
 
   .header__title {
@@ -623,20 +623,22 @@ hr {
   height: 100%;
   transform: translate(-50%, -50%) rotate(-90deg);
   transform-origin: center center;
-  transition: filter 0.5s ease;
   overflow: visible;
   pointer-events: none;
 }
 
-.progress-ring--pomodoro,
-.progress-ring--session {
-  filter: drop-shadow(0 0 12px var(--color-accent));
+.progress-ring--pomodoro .progress-ring__indicator {
+  filter: url(#pomodoroRingGlow);
+}
+
+.progress-ring--session .progress-ring__indicator--session {
+  filter: url(#sessionRingGlow);
 }
 
 .progress-ring__indicator {
   stroke-dasharray: 660;
   stroke-dashoffset: 0;
-  transition: stroke-dashoffset 1s linear, stroke 0.5s ease;
+  transition: stroke-dashoffset 1s linear, stroke 0.5s ease, filter 0.5s ease;
 }
 
 .progress-ring__track {
@@ -644,7 +646,7 @@ hr {
 }
 
 .progress-ring__indicator--session {
-  transition: stroke-dashoffset 1s linear, stroke 0.5s ease;
+  transition: stroke-dashoffset 1s linear, stroke 0.5s ease, filter 0.5s ease;
 }
 
 .timer-stack {
@@ -692,17 +694,16 @@ hr {
   display: flex;
 }
 
-.timer-container.break-mode .progress-ring--pomodoro {
-  filter: drop-shadow(0 0 12px var(--color-break-glow));
-}
-
 .timer-container.break-mode .progress-ring--pomodoro .progress-ring__indicator {
   stroke: var(--color-break-ring);
 }
 
 .timer-container.completed .progress-ring--pomodoro {
-  filter: drop-shadow(0 0 25px var(--color-complete-ring-glow)) drop-shadow(0 0 50px var(--color-complete-ring-glow-strong));
   animation: shinePulse 1.5s ease-in-out infinite alternate;
+}
+
+.timer-container.completed .progress-ring--pomodoro .progress-ring__indicator {
+  filter: url(#pomodoroRingGlowStrong);
 }
 
 @keyframes shinePulse {
@@ -871,9 +872,15 @@ hr {
 
 .task-form {
   display: flex;
+  flex-direction: row;
+  align-items: center;
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-lg);
   position: relative;
+}
+
+.task-form .btn {
+  flex-shrink: 0;
 }
 
 .task-form::after {

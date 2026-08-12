@@ -50,6 +50,15 @@
         <div class="timer-glow-stage">
         <div class="timer-container">
           <svg class="progress-ring progress-ring--session" id="sessionProgressRing" width="300" height="300" aria-hidden="true">
+            <defs>
+              <filter id="sessionRingGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
             <circle
               class="progress-ring__track progress-ring__track--session"
               stroke-width="8"
@@ -72,6 +81,23 @@
           </svg>
 
           <svg class="progress-ring progress-ring--pomodoro" width="300" height="300">
+            <defs>
+              <filter id="pomodoroRingGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <filter id="pomodoroRingGlowStrong" x="-80%" y="-80%" width="260%" height="260%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+                <feGaussianBlur in="blur" stdDeviation="5" result="blur2" />
+                <feMerge>
+                  <feMergeNode in="blur2" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
             <circle
               class="progress-ring__track"
               stroke-width="8"
