@@ -130,6 +130,12 @@
   --color-dialog-bg: var(--color-panel-bg);
   --color-dialog-border: var(--color-chip-border);
 
+  --layout-panel-width: min(90%, 450px);
+  --layout-timer-size: min(90vw, 300px);
+  --layout-rain-controls-drop-compact: 230px;
+  --task-control-height: 2rem;
+  --task-item-mobile-row-gap: 0.8rem;
+
   --radius-sm: 0.375rem;
   --radius-md: 0.625rem;
   --radius-lg: 1rem;
@@ -175,6 +181,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
+  max-width: 100%;
   background-color: var(--color-body-background);
   background-image:
     radial-gradient(circle at 25% 25%, var(--color-gradient-purple) 0%, transparent 45%),
@@ -220,6 +228,8 @@ body {
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   transition: transform var(--transition), background var(--transition), border-color var(--transition);
 }
 
@@ -348,9 +358,51 @@ body {
   gap: var(--spacing-lg);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 800px) {
+  .tomato-pop-out-btn {
+    display: none !important;
+  }
+
   .main {
     grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .app {
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-sm);
+  }
+
+  .panel {
+    width: var(--layout-panel-width);
+    max-width: 100%;
+    padding: var(--spacing-lg) var(--spacing-md);
+  }
+
+  .panel.pomodoro {
+    overflow: visible;
+  }
+
+  .timer-container {
+    width: var(--layout-timer-size);
+    height: var(--layout-timer-size);
+    overflow: visible;
+  }
+
+  .progress-ring {
+    overflow: visible;
+  }
+
+  .rain-volume-control {
+    top: calc(4.25rem + var(--layout-rain-controls-drop-compact));
+    right: 1rem;
+    left: auto;
+    max-width: calc(100vw - 2rem);
+  }
+
+  .mood-btn {
+    top: calc(1rem + var(--layout-rain-controls-drop-compact));
+    max-width: calc(100vw - 2rem);
   }
 }
 
@@ -402,6 +454,7 @@ hr {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  overflow: visible;
 }
 
 .pomodoro__display {
@@ -451,15 +504,20 @@ hr {
   width: 300px;
   height: 300px;
   margin: var(--spacing-lg) auto;
+  overflow: visible;
 }
 
 .progress-ring {
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: 50%;
   width: 100%;
   height: 100%;
-  transform: rotate(-90deg);
+  transform: translate(-50%, -50%) rotate(-90deg);
+  transform-origin: center center;
   transition: filter 0.5s ease;
+  overflow: visible;
+  pointer-events: none;
 }
 
 .progress-ring--pomodoro,
@@ -518,7 +576,10 @@ hr {
   color: var(--color-text-muted);
 }
 
-.timer-container.show-session-timer .progress-ring--session,
+.timer-container.show-session-timer .progress-ring--session {
+  display: block;
+}
+
 .timer-container.show-session-timer .pomodoro__session-meta {
   display: flex;
 }
@@ -537,8 +598,8 @@ hr {
 }
 
 @keyframes shinePulse {
-  from { transform: rotate(-90deg) scale(1); }
-  to { transform: rotate(-90deg) scale(1.04); }
+  from { transform: translate(-50%, -50%) rotate(-90deg) scale(1); }
+  to { transform: translate(-50%, -50%) rotate(-90deg) scale(1.04); }
 }
 
 .completion-banner {
@@ -641,6 +702,8 @@ hr {
   background: var(--color-surface-soft);
   color: var(--color-text);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   transition: background var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition);
 }
 
@@ -1189,6 +1252,7 @@ hr {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 0;
 }
 
 .task-item__time-tag {
@@ -1199,11 +1263,14 @@ hr {
 .compact-time-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
-  padding: 2px 6px;
+  min-height: var(--task-control-height);
+  padding: 0 0.5rem;
   width: 62px;
+  box-sizing: border-box;
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
@@ -1231,6 +1298,17 @@ hr {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.5);
   margin-left: 2px;
+}
+
+.task-time-save-btn,
+.task-item__delete-btn {
+  min-height: var(--task-control-height);
+  height: var(--task-control-height);
+  padding: 0 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .task-item__pom-counter {
@@ -1358,6 +1436,63 @@ hr {
   user-select: none;
 }
 
+@media (max-width: 910px) {
+  .task-item {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas:
+      "handle check details details details details"
+      "handle check time save delete .";
+    align-items: center;
+    column-gap: var(--spacing-md);
+    row-gap: var(--task-item-mobile-row-gap);
+    max-height: none;
+    overflow: visible;
+  }
+
+  .drag-handle {
+    grid-area: handle;
+    grid-row: 1 / -1;
+    align-self: center;
+  }
+
+  .task-item__checkbox {
+    grid-area: check;
+    grid-row: 1 / -1;
+    align-self: center;
+  }
+
+  .task-item__details {
+    grid-area: details;
+    min-width: 0;
+    align-self: start;
+  }
+
+  .compact-time-pill {
+    grid-area: time;
+    justify-self: start;
+    flex-shrink: 0;
+  }
+
+  .task-time-save-btn {
+    grid-area: save;
+    justify-self: start;
+    flex-shrink: 0;
+  }
+
+  .task-item__delete-btn {
+    grid-area: delete;
+    justify-self: start;
+  }
+
+  .task-item__text {
+    display: block;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+
 .task-item:active {
   cursor: grabbing;
 }
@@ -1408,8 +1543,8 @@ hr {
 }
 
 .task-item__text {
-  flex: 1;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .task-item--completed .task-item__text {
@@ -1447,13 +1582,8 @@ hr {
 }
 
 /* Smooth Task Item Removal Animation */
-.task-item {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  max-height: 160px;
-  overflow: hidden;
-}
-
 .task-item.deleting {
+  overflow: hidden;
   opacity: 0;
   transform: translateX(30px) scale(0.95);
   max-height: 0;

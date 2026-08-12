@@ -73,6 +73,15 @@ const longBreakChips = document.querySelectorAll('.long-break-chip');
 
 const LONG_BREAK_STORAGE_KEY = 'longBreakMinutes';
 const PIP_PREFERENCE_KEY = 'tomatoPipPreference';
+const COMPACT_LAYOUT_MEDIA = window.matchMedia('(max-width: 800px)');
+
+function isCompactLayout() {
+  return COMPACT_LAYOUT_MEDIA.matches;
+}
+
+function shouldOfferTomatoPip() {
+  return isTomatoPipSupported() && !isCompactLayout();
+}
 
 const resetConfirmDialog = document.getElementById('resetConfirmDialog');
 const resetConfirmCancel = document.getElementById('resetConfirmCancel');
@@ -193,7 +202,7 @@ function updatePopOutButton() {
     && timeRemaining > 0,
   );
 
-  const shouldShow = isTomatoPipSupported()
+  const shouldShow = shouldOfferTomatoPip()
     && sessionActive
     && !isTomatoPipOpen()
     && wasTomatoPipDismissed();
@@ -202,7 +211,7 @@ function updatePopOutButton() {
 }
 
 async function openTomatoPipIfAllowed() {
-  if (!isTomatoPipSupported() || wasTomatoPipDismissed() || !isRunning || isTomatoPipOpen()) {
+  if (!shouldOfferTomatoPip() || wasTomatoPipDismissed() || !isRunning || isTomatoPipOpen()) {
     return;
   }
 
@@ -261,6 +270,13 @@ function formatTimeDisplay(totalSeconds) {
 }
 
 setTomatoPipDismissHandler(updatePopOutButton);
+
+COMPACT_LAYOUT_MEDIA.addEventListener('change', () => {
+  if (isCompactLayout() && isTomatoPipOpen()) {
+    closeTomatoPip({ markDismissed: false });
+  }
+  updatePopOutButton();
+});
 
 if (tomatoPopOutBtn) {
   tomatoPopOutBtn.addEventListener('click', async () => {
@@ -989,39 +1005,54 @@ function initRainyMode() {
 
   if (audio) {
     audio.volume = targetVolume;
+    audio.setAttribute('playsinline', '');
+    audio.setAttribute('webkit-playsinline', '');
+  }
+
+  function stopRainAudio() {
+    if (!audio) return;
+
+    clearInterval(fadeInterval);
+    fadeInterval = null;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.volume = 0;
+  }
+
+  function fadeAudioIn() {
+    if (!audio) return;
+
+    clearInterval(fadeInterval);
+    audio.volume = 0;
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        console.log('Audio play blocked until user gesture');
+      });
+    }
+
+    const step = 0.05;
+    fadeInterval = setInterval(() => {
+      if (audio.volume < targetVolume - step) {
+        audio.volume += step;
+      } else {
+        audio.volume = targetVolume;
+        clearInterval(fadeInterval);
+        fadeInterval = null;
+      }
+    }, 50);
   }
 
   function fadeAudio(direction) {
     if (!audio) return;
 
-    clearInterval(fadeInterval);
-    const step = 0.05;
-
-    if (direction === 'in') {
-      audio.volume = 0;
-      audio.play().catch(() => {
-        console.log('Audio play blocked until user gesture');
-      });
-
-      fadeInterval = setInterval(() => {
-        if (audio.volume < targetVolume - step) {
-          audio.volume += step;
-        } else {
-          audio.volume = targetVolume;
-          clearInterval(fadeInterval);
-        }
-      }, 50);
-    } else {
-      fadeInterval = setInterval(() => {
-        if (audio.volume > step) {
-          audio.volume -= step;
-        } else {
-          audio.volume = 0;
-          audio.pause();
-          clearInterval(fadeInterval);
-        }
-      }, 50);
+    if (direction === 'out') {
+      stopRainAudio();
+      return;
     }
+
+    fadeAudioIn();
   }
 
   function setRainButtonLabel() {
@@ -1058,7 +1089,7 @@ function initRainyMode() {
     }
 
     rainAnimator.stop();
-    fadeAudio('out');
+    stopRainAudio();
   }
 
   syncRainWithSession = function syncRainWithSessionState() {
@@ -1066,16 +1097,19 @@ function initRainyMode() {
 
     if (sessionState?.isComplete) {
       rainEnabledByUser = false;
+      stopRainAudio();
       setRainVisualActive(false);
       return;
     }
 
     if (!rainEnabledByUser) {
+      stopRainAudio();
       setRainVisualActive(false);
       return;
     }
 
     if (sessionState?.mode === 'break' || rainPausedForTimer) {
+      stopRainAudio();
       setRainVisualActive(false);
       return;
     }
