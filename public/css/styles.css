@@ -132,9 +132,10 @@
 
   --layout-panel-width: min(90%, 450px);
   --layout-timer-size: min(90vw, 300px);
-  --layout-rain-controls-drop-compact: 230px;
+  --layout-rain-controls-drop-compact: 180px;
   --task-control-height: 2rem;
   --task-item-mobile-row-gap: 0.8rem;
+  --timer-ring-glow-bleed: 0.75rem;
 
   --radius-sm: 0.375rem;
   --radius-md: 0.625rem;
@@ -389,6 +390,10 @@ body {
     width: 100%;
   }
 
+  .timer-glow-stage {
+    width: min(100%, calc(var(--layout-timer-size) + 2 * var(--timer-ring-glow-bleed)));
+  }
+
   .timer-container {
     width: min(100%, var(--layout-timer-size));
     height: min(100%, var(--layout-timer-size));
@@ -432,6 +437,10 @@ body {
     max-width: 100%;
   }
 
+  .timer-glow-stage {
+    width: min(100%, calc(260px + 2 * var(--timer-ring-glow-bleed)));
+  }
+
   .timer-container {
     width: min(100%, 260px);
     height: min(100%, 260px);
@@ -465,6 +474,12 @@ body {
   }
 }
 
+@media (max-width: 420px) {
+  .panel {
+    padding: var(--spacing-md) !important;
+  }
+}
+
 .panel {
   background: var(--color-panel-bg);
   -webkit-backdrop-filter: blur(8px) saturate(200%);
@@ -486,6 +501,14 @@ body {
   margin-bottom: var(--spacing-lg);
   position: relative;
   padding-bottom: 0.85rem;
+}
+
+.panel.tasks .panel__title {
+  text-align: center;
+}
+
+.panel.pomodoro {
+  overflow: visible;
 }
 
 .panel__title::after {
@@ -571,6 +594,16 @@ hr {
   50% { opacity: 0.75; }
 }
 
+.timer-glow-stage {
+  display: flex;
+  justify-content: center;
+  overflow: visible;
+  padding: var(--timer-ring-glow-bleed);
+  margin: calc(var(--spacing-lg) - var(--timer-ring-glow-bleed)) auto;
+  width: fit-content;
+  max-width: 100%;
+}
+
 .timer-container {
   position: relative;
   display: flex;
@@ -578,7 +611,7 @@ hr {
   justify-content: center;
   width: 300px;
   height: 300px;
-  margin: var(--spacing-lg) auto;
+  margin: 0 auto;
   overflow: visible;
 }
 
