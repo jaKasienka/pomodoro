@@ -480,6 +480,12 @@ body {
   }
 }
 
+@media (max-width: 373px) {
+  .panel {
+    padding: var(--spacing-sm) !important;
+  }
+}
+
 .panel {
   background: var(--color-panel-bg);
   -webkit-backdrop-filter: blur(8px) saturate(200%);
