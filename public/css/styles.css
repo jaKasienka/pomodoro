@@ -477,14 +477,30 @@ hr {
   cursor: pointer;
   padding: 1rem 1.35rem;
   border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.pomodoro__display:hover {
-  transform: translateY(-8px) scale(1.03);
-  color: var(--color-timer-hover-text);
-  text-shadow: 0 0 30px var(--color-panel-hover-glow);
-  background: var(--color-timer-hover-bg);
-  box-shadow: 0 10px 30px -5px var(--color-timer-hover-shadow);
+.pomodoro__display:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Hover styles for desktop */
+@media (hover: hover) and (pointer: fine) {
+  .pomodoro__display:hover {
+    transform: translateY(-8px) scale(1.03);
+    color: var(--color-timer-hover-text);
+    text-shadow: 0 0 30px var(--color-panel-hover-glow);
+    background: var(--color-timer-hover-bg);
+    box-shadow: 0 10px 30px -5px var(--color-timer-hover-shadow);
+  }
+}
+
+/* Active styles for touch devices */
+@media (hover: none) {
+  .pomodoro__display:active {
+    opacity: 0.88;
+  }
 }
 
 .pomodoro__display--running {

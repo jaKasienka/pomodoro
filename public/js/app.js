@@ -676,6 +676,8 @@ timerDisplay.addEventListener('click', () => {
   } else if (timeRemaining > 0) {
     startTimerRun();
   }
+
+  timerDisplay.blur();
 });
 
 // Task State Management with LocalStorage
