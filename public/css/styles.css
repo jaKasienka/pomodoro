@@ -132,17 +132,23 @@
 
   --layout-panel-width: min(90%, 450px);
   --layout-timer-size: min(90vw, 300px);
-  --layout-rain-controls-drop-compact: 180px;
-  --task-control-height: 2rem;
-  --task-item-mobile-row-gap: 0.8rem;
-  --timer-ring-glow-bleed: 0.75rem;
-  --layout-ultra-compact-timer-scale: 0.65;
   --layout-timer-base-size: 300px;
-  --layout-ultra-compact-panel-inset: 16px;
-  --layout-ultra-compact-rain-btn-lift: 60px;
-  --layout-ultra-compact-rain-btn-scale: 0.8;
+  --layout-rain-controls-drop-compact: 180px;
+  --timer-ring-glow-bleed: 0.75rem;
+
+  /* Phone compact tier (max-width: 464px) — typical portrait phones */
+  --layout-phone-panel-inset: 16px;
+  --layout-phone-timer-scale: 0.65;
+  --layout-phone-rain-btn-lift: 60px;
+  --layout-phone-rain-font-size: 0.72rem;
+  --layout-phone-rain-padding: 0.55rem 0.75rem;
+
+  /* Pom focus overlay */
   --layout-tomato-focus-size: 200px;
   --layout-tomato-focus-offset-top: clamp(3.5rem, 22vh, 6.5rem);
+
+  --task-control-height: 2rem;
+  --task-item-mobile-row-gap: 0.8rem;
 
   --radius-sm: 0.375rem;
   --radius-md: 0.625rem;
@@ -246,6 +252,12 @@ body {
 .mood-btn:hover {
   transform: translateY(-1px);
   background: var(--color-rain-btn-bg-hover);
+}
+
+@media (hover: none) {
+  .mood-btn:hover {
+    transform: none;
+  }
 }
 
 .mood-btn:disabled {
@@ -368,9 +380,18 @@ body {
   gap: var(--spacing-lg);
 }
 
-@media (max-width: 800px) {
+/* --------------------------------------------------------------------------
+   Stacked layout (max-width: 840px) — panels, rain controls, pom focus entry
+   -------------------------------------------------------------------------- */
+@media (max-width: 840px) {
   .tomato-pop-out-btn {
     display: none !important;
+  }
+
+  .tomato-focus-open-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .panel.tasks {
@@ -409,18 +430,6 @@ body {
     width: 100%;
   }
 
-  .timer-glow-stage {
-    width: min(100%, calc(var(--layout-timer-size) + 2 * var(--timer-ring-glow-bleed)));
-  }
-
-  .timer-container {
-    width: min(100%, var(--layout-timer-size));
-    height: min(100%, var(--layout-timer-size));
-    display: flex;
-    margin-inline: auto;
-    overflow: visible;
-  }
-
   .progress-ring {
     overflow: visible;
   }
@@ -435,73 +444,6 @@ body {
   .mood-btn {
     top: calc(1rem + var(--layout-rain-controls-drop-compact));
     max-width: calc(100vw - 2rem);
-  }
-}
-
-@media (max-width: 442px) {
-  .app {
-    padding-inline: var(--spacing-sm);
-  }
-
-  .main {
-    justify-items: stretch;
-  }
-
-  .panel {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .panel.pomodoro {
-    max-width: 100%;
-  }
-
-  .timer-glow-stage {
-    width: min(100%, calc(260px + 2 * var(--timer-ring-glow-bleed)));
-  }
-
-  .timer-container {
-    width: min(100%, 260px);
-    height: min(100%, 260px);
-  }
-
-  .pomodoro__display {
-    width: min(148px, 58%);
-    height: min(148px, 58%);
-    font-size: clamp(2.1rem, 10.5vw, 2.75rem);
-    padding: 0.75rem 1rem;
-  }
-
-  .task-form {
-    flex-direction: row;
-    align-items: center;
-  }
-
-  .task-form__input {
-    flex: 1;
-    width: auto;
-    min-width: 0;
-  }
-
-  .task-form .btn {
-    flex-shrink: 0;
-    align-self: auto;
-  }
-
-  .header__title {
-    font-size: 1.75rem;
-  }
-}
-
-@media (max-width: 420px) {
-  .panel {
-    padding: var(--spacing-md) !important;
-  }
-}
-
-@media (max-width: 373px) {
-  .panel {
-    padding: var(--spacing-sm) !important;
   }
 }
 
@@ -1211,14 +1153,6 @@ body.tomato-focus-active {
   margin-top: var(--spacing-xs);
 }
 
-@media (max-width: 800px) {
-  .tomato-focus-open-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-}
-
 html:not(.pip-supported) .tomato-focus-open-btn {
   display: inline-flex;
   align-items: center;
@@ -1715,6 +1649,7 @@ html:not(.pip-supported) .tomato-pop-out-btn {
   user-select: none;
 }
 
+/* Task list mobile grid (max-width: 910px) */
 @media (max-width: 910px) {
   .task-item {
     display: grid;
@@ -1873,15 +1808,17 @@ html:not(.pip-supported) .tomato-pop-out-btn {
   border-color: transparent;
 }
 
-/* Timer ultra-compact — scale whole stage (rings + glow + display stay aligned) */
-@media (max-width: 359px) {
+/* --------------------------------------------------------------------------
+   Phone compact (max-width: 464px) — narrow panels, scaled timer, rain button
+   -------------------------------------------------------------------------- */
+@media (max-width: 464px) {
   .app {
     padding-inline: var(--spacing-sm);
   }
 
   .header {
     margin-bottom: var(--spacing-xl);
-    max-width: calc(100% - var(--layout-ultra-compact-panel-inset));
+    max-width: calc(100% - var(--layout-phone-panel-inset));
     margin-inline: auto;
   }
 
@@ -1899,14 +1836,14 @@ html:not(.pip-supported) .tomato-pop-out-btn {
   }
 
   .panel {
-    width: calc(100% - var(--layout-ultra-compact-panel-inset));
-    max-width: calc(100% - var(--layout-ultra-compact-panel-inset));
+    width: calc(100% - var(--layout-phone-panel-inset));
+    max-width: calc(100% - var(--layout-phone-panel-inset));
     padding: var(--spacing-sm) !important;
     margin-inline: auto;
   }
 
   .panel.pomodoro {
-    max-width: calc(100% - var(--layout-ultra-compact-panel-inset));
+    max-width: calc(100% - var(--layout-phone-panel-inset));
   }
 
   .panel__title {
@@ -1989,23 +1926,23 @@ html:not(.pip-supported) .tomato-pop-out-btn {
   }
 
   .mood-btn {
-    top: calc(1rem + var(--layout-rain-controls-drop-compact) - var(--layout-ultra-compact-rain-btn-lift));
+    top: calc(1rem + var(--layout-rain-controls-drop-compact) - var(--layout-phone-rain-btn-lift));
     font-weight: var(--font-weight-medium);
-    transform: scale(var(--layout-ultra-compact-rain-btn-scale));
-    transform-origin: top right;
-  }
-
-  .mood-btn:hover {
-    transform: translateY(-1px) scale(var(--layout-ultra-compact-rain-btn-scale));
+    font-size: var(--layout-phone-rain-font-size);
+    padding: var(--layout-phone-rain-padding);
+    transform: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    transition: background var(--transition), border-color var(--transition), opacity var(--transition);
   }
 
   .mood-btn:disabled,
   .mood-btn:disabled:hover {
-    transform: scale(var(--layout-ultra-compact-rain-btn-scale));
+    transform: none;
   }
 
   .timer-glow-stage {
-    --timer-scale: var(--layout-ultra-compact-timer-scale);
+    --timer-scale: var(--layout-phone-timer-scale);
     --timer-layout-footprint: calc(var(--layout-timer-base-size) + 2 * var(--timer-ring-glow-bleed));
     width: fit-content;
     max-width: none;

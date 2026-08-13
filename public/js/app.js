@@ -81,7 +81,7 @@ const longBreakChips = document.querySelectorAll('.long-break-chip');
 
 const LONG_BREAK_STORAGE_KEY = 'longBreakMinutes';
 const PIP_PREFERENCE_KEY = 'tomatoPipPreference';
-const COMPACT_LAYOUT_MEDIA = window.matchMedia('(max-width: 800px)');
+const COMPACT_LAYOUT_MEDIA = window.matchMedia('(max-width: 840px)'); /* matches stacked layout + pom focus in styles.css */
 
 function isCompactLayout() {
   return COMPACT_LAYOUT_MEDIA.matches;
