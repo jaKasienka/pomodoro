@@ -35,6 +35,7 @@ import {
   closeTomatoFocus,
   isTomatoFocusOpen,
   syncTomatoFocus,
+  syncTomatoFocusRain,
 } from './tomatoFocus.mjs';
 import { createRainAnimator } from './rainEffect.mjs';
 import { launchConfetti } from './confettiEffect.mjs';
@@ -1112,6 +1113,7 @@ function initRainyMode() {
     rainVisuallyActive = active;
     document.documentElement.classList.toggle('rain-mode', active);
     syncTomatoPipRain(active);
+    syncTomatoFocusRain(active);
 
     if (active) {
       rainAnimator.start();
@@ -1236,6 +1238,7 @@ initTomatoFocus({
   overlay: document.getElementById('tomatoFocusOverlay'),
   openButton: document.getElementById('tomatoFocusOpenBtn'),
   backButton: document.getElementById('tomatoFocusBackBtn'),
+  rainCanvas: document.getElementById('tomatoFocusRainCanvas'),
   onOpen: syncTomatoPipState,
 });
 

@@ -103,11 +103,13 @@
 
   /* Modern Typography */
   --font-family-main: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-weight-light: 300;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
   --font-weight-heavy: 800;
+  --font-weight-timer: var(--font-weight-light);
 
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
@@ -135,6 +137,7 @@
   --layout-timer-base-size: 300px;
   --layout-rain-controls-drop-compact: 180px;
   --timer-ring-glow-bleed: 0.75rem;
+  --timer-ring-stroke-width: 5px;
 
   /* Phone compact tier (max-width: 464px) — typical portrait phones */
   --layout-phone-panel-inset: 16px;
@@ -388,20 +391,8 @@ body {
     display: none !important;
   }
 
-  .tomato-focus-open-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
   .panel.tasks {
     overflow: visible;
-  }
-
-  .tomato-vessel-container {
-    margin-top: var(--spacing-sm);
-    margin-bottom: var(--spacing-lg);
-    padding-top: var(--spacing-md);
   }
 
   .main {
@@ -515,7 +506,7 @@ hr {
   width: 170px;
   height: 170px;
   font-size: 3.2rem;
-  font-weight: var(--font-weight-heavy);
+  font-weight: var(--font-weight-timer);
   font-variant-numeric: tabular-nums;
   letter-spacing: -1px;
   color: var(--color-timer-text);
@@ -602,14 +593,16 @@ hr {
   filter: url(#sessionRingGlow);
 }
 
+.progress-ring__track {
+  stroke: var(--color-progress-track);
+  stroke-width: var(--timer-ring-stroke-width);
+}
+
 .progress-ring__indicator {
   stroke-dasharray: 660;
   stroke-dashoffset: 0;
+  stroke-width: var(--timer-ring-stroke-width);
   transition: stroke-dashoffset 1s linear, stroke 0.5s ease, filter 0.5s ease;
-}
-
-.progress-ring__track {
-  stroke: var(--color-progress-track);
 }
 
 .progress-ring__indicator--session {
@@ -647,7 +640,7 @@ hr {
 .pomodoro__session-display {
   display: block;
   font-size: 0.95rem;
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-regular);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   color: var(--color-text-muted);
@@ -1039,7 +1032,6 @@ hr {
 }
 
 .tomato-focus-open-btn {
-  display: none;
   border: 1px solid var(--color-surface-border);
   background: var(--color-surface-softest);
   color: var(--color-accent);
@@ -1087,8 +1079,18 @@ body.tomato-focus-active {
   display: none;
 }
 
+.tomato-focus-rain-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .tomato-focus-shell {
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1122,7 +1124,7 @@ body.tomato-focus-active {
 
 .tomato-focus-timer {
   font-size: 2.4rem;
-  font-weight: var(--font-weight-heavy);
+  font-weight: var(--font-weight-timer);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   color: var(--color-timer-text);
@@ -1151,16 +1153,6 @@ body.tomato-focus-active {
 
 .tomato-focus-back-btn {
   margin-top: var(--spacing-xs);
-}
-
-html:not(.pip-supported) .tomato-focus-open-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-html:not(.pip-supported) .tomato-pop-out-btn {
-  display: none !important;
 }
 
 .pip-tomato-body {
@@ -1258,8 +1250,8 @@ html:not(.pip-supported) .tomato-pop-out-btn {
 }
 
 .pip-tomato-timer {
-  font-size: 1.1rem;
-  font-weight: var(--font-weight-heavy);
+  font-size: 1.4rem;
+  font-weight: var(--font-weight-timer);
   font-variant-numeric: tabular-nums;
   color: var(--color-timer-text);
   text-shadow: 0 0 12px var(--color-timer-glow);
@@ -1347,7 +1339,7 @@ html:not(.pip-supported) .tomato-pop-out-btn {
 .tomato-stem-vessel {
   position: absolute;
   top: 3px;
-  left: 50%;
+  left: 48%;
   transform: translateX(-50%);
   width: 5px;
   height: 12px;
@@ -1381,7 +1373,7 @@ html:not(.pip-supported) .tomato-pop-out-btn {
 }
 
 .leaf-vessel-c {
-  left: 44%;
+  left: 45%;
   top: 6px;
   transform: translateX(-66%) rotate(-10deg);
   width: 15px;
@@ -1447,7 +1439,7 @@ html:not(.pip-supported) .tomato-pop-out-btn {
 
 .progress-bar-track {
   width: 100%;
-  height: 6px;
+  height: 5px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 9999px;
   overflow: hidden;
@@ -1965,5 +1957,38 @@ html:not(.pip-supported) .tomato-pop-out-btn {
     height: 170px;
     font-size: 3.2rem;
     padding: 1rem 1.35rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Pom focus entry visibility (must follow base .tomato-focus-open-btn styles)
+   -------------------------------------------------------------------------- */
+@media (max-width: 840px) {
+  .tomato-vessel-container {
+    margin-top: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+    padding-top: var(--spacing-md);
+  }
+
+  .tomato-focus-open-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+html:not(.pip-supported) .tomato-focus-open-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+html:not(.pip-supported) .tomato-pop-out-btn {
+  display: none !important;
+}
+
+@media (min-width: 841px) {
+  html.pip-supported .tomato-focus-open-btn {
+    display: none;
   }
 }

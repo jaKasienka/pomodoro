@@ -1,17 +1,42 @@
+import { createRainAnimator, isRainModeActive } from './rainEffect.mjs';
+
 let overlayEl = null;
 let openButtonEl = null;
 let backButtonEl = null;
+let rainCanvasEl = null;
 let onOpenCallback = null;
 let initialized = false;
+let focusRainAnimator = null;
+let focusResizeHandler = null;
 
 export function isTomatoFocusOpen() {
   return Boolean(overlayEl && !overlayEl.hidden);
+}
+
+function setupFocusRain() {
+  if (!rainCanvasEl || focusRainAnimator) return;
+
+  focusRainAnimator = createRainAnimator(rainCanvasEl);
+  focusResizeHandler = () => focusRainAnimator?.resize();
+  window.addEventListener('resize', focusResizeHandler);
+}
+
+export function syncTomatoFocusRain(isRainActive = isRainModeActive()) {
+  if (!isTomatoFocusOpen()) return;
+
+  if (isRainActive) {
+    focusRainAnimator?.start();
+    return;
+  }
+
+  focusRainAnimator?.stop();
 }
 
 export function initTomatoFocus({
   overlay,
   openButton,
   backButton,
+  rainCanvas,
   onOpen,
 } = {}) {
   if (initialized) return;
@@ -19,7 +44,10 @@ export function initTomatoFocus({
   overlayEl = overlay;
   openButtonEl = openButton;
   backButtonEl = backButton;
+  rainCanvasEl = rainCanvas;
   onOpenCallback = onOpen;
+
+  setupFocusRain();
 
   openButtonEl?.addEventListener('click', openTomatoFocus);
   backButtonEl?.addEventListener('click', closeTomatoFocus);
@@ -39,6 +67,7 @@ export function openTomatoFocus() {
   overlayEl.hidden = false;
   overlayEl.setAttribute('aria-hidden', 'false');
   document.body.classList.add('tomato-focus-active');
+  syncTomatoFocusRain(isRainModeActive());
   onOpenCallback?.();
   backButtonEl?.focus();
 }
@@ -46,6 +75,7 @@ export function openTomatoFocus() {
 export function closeTomatoFocus() {
   if (!overlayEl) return;
 
+  focusRainAnimator?.stop();
   overlayEl.hidden = true;
   overlayEl.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('tomato-focus-active');
