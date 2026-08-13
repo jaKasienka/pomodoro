@@ -133,6 +133,86 @@ function segmentFromState(state) {
   return state.segments[state.segmentIndex];
 }
 
+function getTotalSessionSeconds(segments) {
+  return segments.reduce((sum, segment) => sum + segment.duration, 0);
+}
+
+export function hasSessionProgress(state) {
+  if (!state || state.isComplete) return false;
+  if (state.segmentIndex > 0) return true;
+
+  const segmentDuration = state.segments?.[state.segmentIndex]?.duration;
+  if (segmentDuration == null) return false;
+
+  return state.timeRemaining < segmentDuration;
+}
+
+export function reconcileSessionWithSchedule(state, schedule) {
+  if (!schedule.segments?.length) {
+    return createDefaultSessionState();
+  }
+
+  if (!state || state.isComplete || !hasSessionProgress(state)) {
+    return createSessionState(schedule.segments, {
+      showSessionRing: schedule.showSessionRing,
+    });
+  }
+
+  const newSegments = schedule.segments;
+  const newTotalSessionSeconds = getTotalSessionSeconds(newSegments);
+  const elapsed = Math.max(0, state.totalSessionSeconds - state.sessionTimeRemaining);
+
+  if (elapsed >= newTotalSessionSeconds) {
+    const lastSegment = newSegments[newSegments.length - 1];
+
+    return {
+      ...state,
+      segments: newSegments,
+      segmentIndex: newSegments.length - 1,
+      timeRemaining: 0,
+      totalDuration: lastSegment.duration,
+      mode: segmentToMode(lastSegment),
+      isLongBreak: lastSegment.type === 'long-break',
+      sessionTimeRemaining: 0,
+      totalSessionSeconds: newTotalSessionSeconds,
+      isComplete: true,
+      showSessionRing: schedule.showSessionRing,
+    };
+  }
+
+  let consumed = 0;
+
+  for (let index = 0; index < newSegments.length; index += 1) {
+    const segment = newSegments[index];
+    const segmentEnd = consumed + segment.duration;
+
+    if (elapsed < segmentEnd) {
+      const intoSegment = elapsed - consumed;
+
+      return {
+        ...state,
+        segments: newSegments,
+        segmentIndex: index,
+        timeRemaining: segment.duration - intoSegment,
+        totalDuration: segment.duration,
+        mode: segmentToMode(segment),
+        isLongBreak: segment.type === 'long-break',
+        sessionTimeRemaining: newTotalSessionSeconds - elapsed,
+        totalSessionSeconds: newTotalSessionSeconds,
+        isComplete: false,
+        showSessionRing: schedule.showSessionRing,
+      };
+    }
+
+    consumed = segmentEnd;
+  }
+
+  return createSessionState(schedule.segments, {
+    showSessionRing: schedule.showSessionRing,
+    autoStart: state.isRunning,
+  });
+}
+
 export function createSessionState(segments, { autoStart = false, showSessionRing = false } = {}) {
   if (!segments.length) {
     return null;

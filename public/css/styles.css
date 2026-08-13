@@ -141,6 +141,7 @@
   --layout-ultra-compact-panel-inset: 16px;
   --layout-ultra-compact-rain-btn-lift: 60px;
   --layout-ultra-compact-rain-btn-scale: 0.8;
+  --layout-tomato-focus-size: 200px;
 
   --radius-sm: 0.375rem;
   --radius-md: 0.625rem;
@@ -178,7 +179,9 @@
 .task-time-field:focus-visible,
 .volume-slider:focus-visible,
 .task-summary__read-more:focus-visible,
-.tomato-pop-out-btn:focus-visible {
+.tomato-pop-out-btn:focus-visible,
+.tomato-focus-open-btn:focus-visible,
+.tomato-focus-back-btn:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
@@ -1082,6 +1085,123 @@ hr {
   color: var(--color-accent-hover);
 }
 
+.tomato-focus-open-btn {
+  display: none;
+  border: 1px solid var(--color-surface-border);
+  background: var(--color-surface-softest);
+  color: var(--color-accent);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.tomato-focus-open-btn:hover {
+  background: var(--color-surface-soft);
+  border-color: var(--color-accent);
+  color: var(--color-accent-hover);
+}
+
+body.tomato-focus-active {
+  overflow: hidden;
+}
+
+.tomato-focus-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+  background-color: var(--color-body-background);
+  background-image:
+    radial-gradient(circle at 25% 25%, var(--color-gradient-purple) 0%, transparent 45%),
+    radial-gradient(circle at 75% 75%, var(--color-gradient-purple-strong) 0%, transparent 45%),
+    radial-gradient(circle at 50% 10%, var(--color-gradient-lilac) 0%, transparent 35%);
+}
+
+.tomato-focus-overlay[hidden] {
+  display: none;
+}
+
+.tomato-focus-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: min(100%, 18rem);
+  padding: var(--spacing-lg);
+}
+
+.tomato-focus-vessel-container {
+  margin: 0;
+}
+
+.tomato-focus-vessel {
+  width: var(--layout-tomato-focus-size);
+  height: var(--layout-tomato-focus-size);
+}
+
+.tomato-focus-vessel--break {
+  box-shadow:
+    0 8px 32px var(--color-vessel-shadow),
+    inset 0 0 15px var(--color-vessel-highlight),
+    0 0 24px var(--color-break-glow);
+}
+
+.tomato-focus-vessel--complete {
+  box-shadow:
+    0 8px 32px var(--color-vessel-shadow),
+    inset 0 0 15px var(--color-vessel-highlight),
+    0 0 24px var(--color-complete-ring-glow);
+}
+
+.tomato-focus-timer {
+  font-size: 2.4rem;
+  font-weight: var(--font-weight-heavy);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--color-timer-text);
+  text-shadow: 0 0 20px var(--color-timer-glow);
+}
+
+.tomato-focus-break-hint,
+.tomato-focus-complete-hint {
+  margin: 0;
+  max-width: 14rem;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+}
+
+.tomato-focus-complete-hint {
+  color: var(--color-complete-title);
+}
+
+.tomato-focus-break-hint:not([hidden]),
+.tomato-focus-complete-hint:not([hidden]) {
+  animation: pipBreakHintFadeIn 0.45s ease;
+}
+
+.tomato-focus-back-btn {
+  margin-top: var(--spacing-xs);
+}
+
+@media (max-width: 800px) {
+  .tomato-focus-open-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 .pip-tomato-body {
   margin: 0;
   min-height: 100vh;
@@ -1239,6 +1359,11 @@ hr {
     0 8px 32px var(--color-vessel-shadow),
     inset 0 0 15px var(--color-vessel-highlight);
   overflow: hidden;
+}
+
+.glass-tomato-vessel.tomato-focus-vessel {
+  width: var(--layout-tomato-focus-size);
+  height: var(--layout-tomato-focus-size);
 }
 
 /* Fluid Progress Layer */

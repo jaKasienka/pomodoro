@@ -6,6 +6,8 @@ import {
   DEFAULT_LONG_BREAK_MINS,
   LONG_BREAK_OPTIONS,
   createSessionState,
+  hasSessionProgress,
+  reconcileSessionWithSchedule,
   createDefaultSessionState,
   decrementSessionTimer,
   getStatusForSessionState,
@@ -28,6 +30,12 @@ import {
   syncTomatoPipRain,
   celebrateTomatoPipCompletion,
 } from './tomatoPip.mjs';
+import {
+  initTomatoFocus,
+  closeTomatoFocus,
+  isTomatoFocusOpen,
+  syncTomatoFocus,
+} from './tomatoFocus.mjs';
 import { createRainAnimator } from './rainEffect.mjs';
 import { launchConfetti } from './confettiEffect.mjs';
 import {
@@ -148,9 +156,13 @@ function getActiveSchedule() {
 }
 
 function loadSessionPlan() {
-  const schedule = getActiveSchedule();
+  applySessionPlan(getActiveSchedule());
+}
 
-  if (schedule.totalPoms > 0) {
+function applySessionPlan(schedule, { preserveProgress = false } = {}) {
+  if (preserveProgress && sessionState && hasSessionProgress(sessionState)) {
+    sessionState = reconcileSessionWithSchedule(sessionState, schedule);
+  } else if (schedule.totalPoms > 0) {
     sessionState = createSessionState(schedule.segments, {
       showSessionRing: schedule.showSessionRing,
     });
@@ -185,6 +197,14 @@ function syncTomatoPipState() {
   const completionContent = getCompletionStatusContent();
 
   syncTomatoPip({
+    fillPercent: getTomatoFillPercent(sessionState),
+    timerText: formatTimeDisplay(timeRemaining),
+    isBreak: sessionState.mode === 'break',
+    isComplete: sessionState.isComplete,
+    completionText: completionContent.headline,
+  });
+
+  syncTomatoFocus({
     fillPercent: getTomatoFillPercent(sessionState),
     timerText: formatTimeDisplay(timeRemaining),
     isBreak: sessionState.mode === 'break',
@@ -275,6 +295,11 @@ COMPACT_LAYOUT_MEDIA.addEventListener('change', () => {
   if (isCompactLayout() && isTomatoPipOpen()) {
     closeTomatoPip({ markDismissed: false });
   }
+
+  if (!isCompactLayout() && isTomatoFocusOpen()) {
+    closeTomatoFocus();
+  }
+
   updatePopOutButton();
 });
 
@@ -740,7 +765,7 @@ timerDisplay.addEventListener('click', () => {
       progressBar.style.width = `${percentage}%`;
     }
 
-    if (!isRunning && typeof window.refreshSessionPlan === 'function') {
+    if (typeof window.refreshSessionPlan === 'function') {
       window.refreshSessionPlan();
     }
   }
@@ -1191,8 +1216,7 @@ function resetTimer() {
 }
 
 window.refreshSessionPlan = () => {
-  if (isRunning) return;
-  loadSessionPlan();
+  applySessionPlan(getActiveSchedule(), { preserveProgress: true });
   updateTimerStatus();
 };
 
@@ -1202,6 +1226,13 @@ setTimerControls();
 updatePopOutButton();
 updateLongBreakPillsUI();
 initResetConfirmDialog();
+
+initTomatoFocus({
+  overlay: document.getElementById('tomatoFocusOverlay'),
+  openButton: document.getElementById('tomatoFocusOpenBtn'),
+  backButton: document.getElementById('tomatoFocusBackBtn'),
+  onOpen: syncTomatoPipState,
+});
 
 (function initLongBreakPresets() {
   document.querySelectorAll('.long-break-chip').forEach((chip) => {

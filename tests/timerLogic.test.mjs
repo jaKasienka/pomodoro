@@ -13,6 +13,8 @@ import {
   createFocusState,
   createBreakState,
   createSessionState,
+  hasSessionProgress,
+  reconcileSessionWithSchedule,
   decrementTimer,
   decrementSessionTimer,
   getRunningStatusText,
@@ -221,5 +223,53 @@ describe('timerLogic', () => {
     assert.match(status.headline, /great work today/);
     assert.match(status.body, /well-earned rest/);
     assert.match(getStatusForSessionState(state), /Session complete/);
+  });
+
+  it('detects when a session has left the starting segment', () => {
+    const schedule = calculateDaySchedule(60);
+    const fresh = createSessionState(schedule.segments);
+    const pausedMidFocus = {
+      ...fresh,
+      timeRemaining: POMODORO_SECONDS / 2,
+      sessionTimeRemaining: fresh.sessionTimeRemaining - POMODORO_SECONDS / 2,
+    };
+
+    assert.equal(hasSessionProgress(fresh), false);
+    assert.equal(hasSessionProgress(pausedMidFocus), true);
+  });
+
+  it('preserves elapsed time when the day plan changes while paused', () => {
+    const initialSchedule = calculateDaySchedule(60);
+    let state = createSessionState(initialSchedule.segments);
+    const elapsed = POMODORO_SECONDS / 2;
+
+    state = {
+      ...state,
+      isRunning: false,
+      timeRemaining: state.timeRemaining - elapsed,
+      sessionTimeRemaining: state.sessionTimeRemaining - elapsed,
+    };
+
+    const expandedSchedule = calculateDaySchedule(90);
+    const reconciled = reconcileSessionWithSchedule(state, expandedSchedule);
+
+    assert.equal(reconciled.isComplete, false);
+    assert.equal(reconciled.isRunning, false);
+    assert.equal(reconciled.timeRemaining, state.timeRemaining);
+    assert.equal(
+      reconciled.sessionTimeRemaining,
+      expandedSchedule.totalScheduleSeconds - elapsed,
+    );
+  });
+
+  it('rebuilds from scratch when there is no session progress yet', () => {
+    const initialSchedule = calculateDaySchedule(60);
+    const state = createSessionState(initialSchedule.segments);
+    const updatedSchedule = calculateDaySchedule(90);
+    const reconciled = reconcileSessionWithSchedule(state, updatedSchedule);
+
+    assert.equal(reconciled.segmentIndex, 0);
+    assert.equal(reconciled.timeRemaining, updatedSchedule.segments[0].duration);
+    assert.equal(reconciled.sessionTimeRemaining, updatedSchedule.totalScheduleSeconds);
   });
 });

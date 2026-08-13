@@ -173,6 +173,14 @@
           >
             Pop out ↗
           </button>
+          <button
+            type="button"
+            class="tomato-focus-open-btn"
+            id="tomatoFocusOpenBtn"
+            aria-label="Open pom focus view"
+          >
+            Focus on pom
+          </button>
         </div>
 
         <div class="task-summary-card">
@@ -256,6 +264,26 @@
       <button type="button" class="btn btn--primary" id="pipPromptAllow">Allow</button>
     </div>
   </dialog>
+
+  <div id="tomatoFocusOverlay" class="tomato-focus-overlay" hidden aria-hidden="true">
+    <div class="tomato-focus-shell" role="dialog" aria-modal="true" aria-labelledby="tomatoFocusTitle">
+      <p id="tomatoFocusTitle" class="visually-hidden">Pom focus view</p>
+      <div class="tomato-vessel-container tomato-focus-vessel-container">
+        <div class="glass-tomato-vessel tomato-focus-vessel" id="tomatoFocusVisual">
+          <div class="tomato-fill-fluid" id="tomatoFocusFillLevel"></div>
+          <div class="tomato-stem-vessel"></div>
+          <div class="tomato-leaf-vessel leaf-vessel-l"></div>
+          <div class="tomato-leaf-vessel leaf-vessel-c"></div>
+          <div class="tomato-leaf-vessel leaf-vessel-r"></div>
+          <div class="glass-reflection-vessel"></div>
+        </div>
+      </div>
+      <div class="tomato-focus-timer" id="tomatoFocusTimerDisplay">25:00</div>
+      <p class="tomato-focus-break-hint" id="tomatoFocusBreakHint" hidden>Time to pause! Stand up and stretch.</p>
+      <p class="tomato-focus-complete-hint" id="tomatoFocusCompleteHint" hidden></p>
+      <button type="button" class="btn btn--secondary tomato-focus-back-btn" id="tomatoFocusBackBtn">Back to app</button>
+    </div>
+  </div>
 
   <script type="module" src="/js/app.js"></script>
 </body>
