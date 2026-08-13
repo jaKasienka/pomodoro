@@ -91,6 +91,10 @@ function shouldOfferTomatoPip() {
   return isTomatoPipSupported() && !isCompactLayout();
 }
 
+function syncTomatoViewAvailability() {
+  document.documentElement.classList.toggle('pip-supported', isTomatoPipSupported());
+}
+
 const resetConfirmDialog = document.getElementById('resetConfirmDialog');
 const resetConfirmCancel = document.getElementById('resetConfirmCancel');
 const resetConfirmOk = document.getElementById('resetConfirmOk');
@@ -296,7 +300,7 @@ COMPACT_LAYOUT_MEDIA.addEventListener('change', () => {
     closeTomatoPip({ markDismissed: false });
   }
 
-  if (!isCompactLayout() && isTomatoFocusOpen()) {
+  if (!isCompactLayout() && isTomatoFocusOpen() && shouldOfferTomatoPip()) {
     closeTomatoFocus();
   }
 
@@ -1221,6 +1225,7 @@ window.refreshSessionPlan = () => {
 };
 
 loadSessionPlan();
+syncTomatoViewAvailability();
 updateTimerUI();
 setTimerControls();
 updatePopOutButton();
