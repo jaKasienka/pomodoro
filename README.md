@@ -24,7 +24,7 @@
 
 ```bash
 # Clone the repository
-git clone [https://github.com/jaKasienka/pomodoro.git](https://github.com/jaKasienka/pomodoro.git)
+git clone https://github.com/jaKasienka/pomodoro.git
 
 # Navigate into project directory
 cd pomodoro
@@ -42,16 +42,26 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## ✨ Features
 
+### Pomodoro & scheduling
 - **Task-driven scheduling** — planned focus time rolls up into a full-day Pomodoro schedule (focus + breaks)
 - **Multi-pomodoro sessions** — 25 min focus / 5 min break, with a long break after every 4th pomodoro
 - **Configurable long breaks** — choose 15, 20, or 30 minutes before starting
 - **Session overview** — outer ring and session timer when the planned day exceeds 30 minutes
-- **Task manager** — add, reorder, complete, and edit per-task focus minutes (with quick-add presets)
-- **Mini pop-out timer** — optional Document Picture-in-Picture window while you focus
-- **Ambient rain** — optional background rain effect with volume control (pauses on breaks)
 - **OS notifications** — alerts when focus/break segments start and when the day plan completes
 - **Completion UX** — confetti, rich status copy, and a clear reset flow
 - **Tested timer logic** — schedule and segment rules covered by `npm test`
+
+### Tasks
+- **Task manager** — add, reorder, complete, and edit per-task focus minutes (with quick-add presets)
+- **Planned-time summary** — total day estimate with a progress bar; tasks persist in `localStorage`
+- **Paused progress preserved** — adding or editing tasks while paused no longer resets the timer
+
+### Focus views & visuals
+- **Glass tomato** — fill level synced to session progress in the main view, pop-out, and focus mode
+- **Mini pop-out timer** — optional Document Picture-in-Picture window on desktop Chrome/Edge
+- **Focus on pom** — full-screen glass-tomato view on mobile and tablet when pop-out is unavailable
+- **Ambient rain** — optional background rain with volume control (pauses on breaks); rain also appears in the focus overlay
+- **Responsive layout** — stacked panels on narrow screens, compact phone tier, and scaled timer for small viewports
 
 ---
 
@@ -74,7 +84,7 @@ export const TEST_MODE = true; // quick demo: 25 min focus → 25 seconds
 
 1. Add a task (or use a quick-add chip) and note the planned schedule update
 2. Choose a long break length (15 / 20 / 30 min) and start the timer
-3. Optional: allow the mini pop-out window, toggle rain, and run through a break
+3. Optional: toggle rain, try **Pop out ↗** on desktop or **Focus on pom** on mobile, and run through a break
 4. Run unit tests: `npm test`
 
 ---
